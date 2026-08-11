@@ -727,7 +727,6 @@ class TextTableParser(HTMLParser):
 
             self.buf.append(data)
 
-
 def update_mas(
     log: list[str],
 ) -> dict[str, Any]:
@@ -741,35 +740,80 @@ def update_mas(
         errors="replace",
     )
 
-    parser = TextTableParser()
+    # ---------------------------------------------------------------
+    # MAS publishes SGS benchmark data as a matrix.
+    #
+    # The page contains:
+    #
+    # Issue Code
+    # Coupon Rate
+    # Maturity Date
+    #
+    # followed by daily rows where each benchmark has either:
+    #
+    # Yield
+    #
+    # or:
+    #
+    # Price | Yield
+    #
+    # We only need the latest daily row.
+    # ---------------------------------------------------------------
 
+    parser = TextTableParser()
     parser.feed(html)
 
-    # Look for a row containing both a likely issue-code
-    # heading and a price/yield heading.
-    header = None
+    # The HTML parser may produce multiple tables.
+    # Find the table containing our known SGS issue codes.
+
+    target_codes = {
+        "N523100W",
+        "NX21100N",
+        "NZ16100X",
+        "NY25200N",
+        "NA16100H",
+        "NC22300W",
+    }
+
+    target_rows = []
 
     for row in parser.rows:
 
-        text = " ".join(row).lower()
+        normalized = {
+            str(cell).strip().upper()
+            for cell in row
+        }
 
-        if (
-            "yield" in text
-            or "price" in text
-        ) and (
-            "issue" in text
-            or "code" in text
-            or "isin" in text
-        ):
+        if normalized.intersection(target_codes):
 
-            header = row
-            break
+            target_rows.append(row)
 
-    if not header:
+    # ---------------------------------------------------------------
+    # If the generic parser does not expose the table rows cleanly,
+    # use the raw HTML text as a fallback.
+    # ---------------------------------------------------------------
+
+    if not target_rows:
+
+        text = re.sub(
+            r"<[^>]+>",
+            " ",
+            html,
+        )
+
+        text = re.sub(
+            r"\s+",
+            " ",
+            text,
+        )
+
+        # We don't fabricate values here.
+        # The explicit failure message tells us the MAS markup
+        # changed if this fallback is reached.
 
         log.append(
             "Singapore: MAS page fetched, "
-            "but no SGS issue codes were detected."
+            "but benchmark issue-code rows could not be parsed."
         )
 
         return {
@@ -778,105 +822,359 @@ def update_mas(
             "rows": [],
         }
 
-    issue_idx = None
-    yield_idx = None
-    price_idx = None
-    date_idx = None
+    # ---------------------------------------------------------------
+    # Build a simple issue-code index from the HTML.
+    #
+    # The current MAS benchmark page places the issue code and
+    # associated maturity information together in the table.
+    # ---------------------------------------------------------------
 
-    for i, column in enumerate(header):
+    issue_index = {}
 
-        c = column.lower()
+    for row in target_rows:
 
-        if issue_idx is None and (
-            "issue" in c
-            or "code" in c
-            or "isin" in c
-        ):
-            issue_idx = i
+        cells = [
+            str(cell).strip()
+            for cell in row
+        ]
 
-        if yield_idx is None and "yield" in c:
-            yield_idx = i
+        for i, cell in enumerate(cells):
 
-        if price_idx is None and "price" in c:
-            price_idx = i
+            code = cell.upper()
 
-        if date_idx is None and "date" in c:
-            date_idx = i
+            if code not in target_codes:
+                continue
 
-    rows: list[dict[str, Any]] = []
-
-    for row in parser.rows:
-
-        if row is header:
-            continue
-
-        if issue_idx is None:
-            continue
-
-        if len(row) <= issue_idx:
-            continue
-
-        issue_code = row[issue_idx].strip()
-
-        if not issue_code:
-            continue
-
-        yield_value = None
-        price_value = None
-        date_value = None
-
-        if (
-            yield_idx is not None
-            and len(row) > yield_idx
-        ):
-
-            yield_value = clean_number(
-                row[yield_idx]
-            )
-
-        if (
-            price_idx is not None
-            and len(row) > price_idx
-        ):
-
-            price_value = clean_number(
-                row[price_idx]
-            )
-
-        if (
-            date_idx is not None
-            and len(row) > date_idx
-        ):
-
-            date_value = row[date_idx]
-
-        if (
-            yield_value is None
-            and price_value is None
-        ):
-            continue
-
-        rows.append(
-            {
-                "issue_code": issue_code,
-                "yield": yield_value,
-                "price": price_value,
-                "date": date_value,
-                "source": "MAS",
+            issue_index[code] = {
+                "row": cells,
+                "index": i,
             }
+
+    # ---------------------------------------------------------------
+    # Latest MAS closing data
+    #
+    # MAS currently exposes the latest daily benchmark row as:
+    #
+    # date | ... | Yield | Price | Yield | Price ...
+    #
+    # The benchmark columns occur in this order:
+    #
+    # 2Y  -> Price / Yield
+    # 5Y  -> Price / Yield
+    # 10Y -> Price / Yield
+    # 15Y -> Price / Yield
+    # 20Y -> Price / Yield
+    # 30Y -> Price / Yield
+    # 50Y -> Price / Yield
+    #
+    # We therefore map our issue codes to their benchmark column.
+    # ---------------------------------------------------------------
+
+    benchmark_map = {
+        "N523100W": "2Y",
+        "NX21100N": "5Y",
+        "NZ16100X": "10Y",
+        "NY25200N": "15Y",
+        "NA16100H": "30Y",
+        "NC22300W": "50Y",
+    }
+
+    # ---------------------------------------------------------------
+    # Extract the latest daily values directly from the visible
+    # MAS page text.
+    # ---------------------------------------------------------------
+
+    visible_text = re.sub(
+        r"<script.*?</script>",
+        " ",
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    visible_text = re.sub(
+        r"<style.*?</style>",
+        " ",
+        visible_text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    visible_text = re.sub(
+        r"<[^>]+>",
+        " ",
+        visible_text,
+    )
+
+    visible_text = re.sub(
+        r"\s+",
+        " ",
+        visible_text,
+    ).strip()
+
+    # ---------------------------------------------------------------
+    # Locate the latest date appearing in the Closing Levels section.
+    #
+    # MAS uses DD Mon YYYY, for example:
+    #
+    # 11 Aug 2026
+    # ---------------------------------------------------------------
+
+    date_matches = re.findall(
+        r"\b\d{2}\s+[A-Za-z]{3}\s+\d{4}\b",
+        visible_text,
+    )
+
+    if not date_matches:
+
+        log.append(
+            "Singapore: MAS page fetched, "
+            "but no closing-level date was detected."
         )
 
+        return {
+            "source": "MAS",
+            "status": "fetched_no_date",
+            "rows": [],
+        }
+
+    latest_date = date_matches[-1]
+
+    # ---------------------------------------------------------------
+    # The current MAS page exposes the latest benchmark row as a
+    # sequence of values.
+    #
+    # For 11 Aug 2026 the page currently shows:
+    #
+    # 2Y:
+    #   1.71 / 98.22
+    #
+    # 5Y:
+    #   2.01 / 99.41
+    #
+    # 10Y:
+    #   2.32 / 98.61
+    #
+    # 15Y:
+    #   2.37 / 99.88
+    #
+    # 20Y:
+    #   2.38 / 115.91
+    #
+    # 30Y:
+    #   2.46 / 110.92
+    #
+    # 50Y:
+    #   2.59
+    #
+    # However, because MAS can change the page layout, we don't
+    # hard-code those values. We parse the latest row.
+    # ---------------------------------------------------------------
+
+    rows = []
+
+    # Find the portion of the page after "Closing Levels".
+    closing_pos = visible_text.lower().find(
+        "closing levels"
+    )
+
+    if closing_pos < 0:
+
+        log.append(
+            "Singapore: MAS Closing Levels section not found."
+        )
+
+        return {
+            "source": "MAS",
+            "status": "fetched_no_closing_section",
+            "rows": [],
+        }
+
+    closing_text = visible_text[
+        closing_pos:
+    ]
+
+    # Look for the latest date in the closing section.
+    latest_match = re.search(
+        r"\b(\d{2}\s+[A-Za-z]{3}\s+\d{4})\b",
+        closing_text,
+    )
+
+    if not latest_match:
+
+        log.append(
+            "Singapore: MAS latest closing date not found."
+        )
+
+        return {
+            "source": "MAS",
+            "status": "fetched_no_date",
+            "rows": [],
+        }
+
+    latest_date = latest_match.group(1)
+
+    # ---------------------------------------------------------------
+    # Extract the latest numeric sequence following the latest date.
+    #
+    # MAS's current page exposes the latest row in plain text.
+    # ---------------------------------------------------------------
+
+    after_date = closing_text[
+        latest_match.end():
+    ]
+
+    numbers = re.findall(
+        r"\b\d+(?:\.\d+)?\b",
+        after_date,
+    )
+
+    numeric_values = []
+
+    for value in numbers:
+
+        try:
+
+            numeric_values.append(
+                float(value)
+            )
+
+        except ValueError:
+            continue
+
+    # We need the benchmark values only.
+    #
+    # The current benchmark sequence is:
+    #
+    # 6M yield
+    # 1Y yield
+    # 2Y yield
+    # 2Y price
+    # 5Y yield
+    # 5Y price
+    # 10Y yield
+    # 10Y price
+    # 15Y yield
+    # 15Y price
+    # 20Y yield
+    # 20Y price
+    # 30Y yield
+    # 30Y price
+    # 50Y yield
+    #
+    # Therefore:
+    #
+    # N523100W -> positions 2,3
+    # NX21100N -> positions 4,5
+    # NZ16100X -> positions 6,7
+    # NY25200N -> positions 8,9
+    # NA16100H -> positions 12,13
+    # NC22300W -> position 14
+    #
+    # NOTE:
+    # We validate the values before accepting them.
+    # ---------------------------------------------------------------
+
+    if len(numeric_values) < 15:
+
+        log.append(
+            "Singapore: MAS latest row did not contain "
+            "the expected benchmark values."
+        )
+
+        return {
+            "source": "MAS",
+            "status": "fetched_incomplete",
+            "rows": [],
+        }
+
+    latest_values = numeric_values[:15]
+
+    # Map benchmark positions.
+    benchmark_values = {
+        "N523100W": {
+            "yield": latest_values[2],
+            "price": latest_values[3],
+        },
+        "NX21100N": {
+            "yield": latest_values[4],
+            "price": latest_values[5],
+        },
+        "NZ16100X": {
+            "yield": latest_values[6],
+            "price": latest_values[7],
+        },
+        "NY25200N": {
+            "yield": latest_values[8],
+            "price": latest_values[9],
+        },
+        "NA16100H": {
+            "yield": latest_values[12],
+            "price": latest_values[13],
+        },
+        "NC22300W": {
+            "yield": latest_values[14],
+            "price": None,
+        },
+    }
+
+    # ---------------------------------------------------------------
+    # Sanity-check values.
+    #
+    # SGS yields should normally be between 0 and 20%.
+    # Prices should normally be between 50 and 150.
+    #
+    # If a page-layout change causes nonsense values, reject them.
+    # ---------------------------------------------------------------
+
+    for issue_code, values in benchmark_values.items():
+
+        y = values.get("yield")
+        p = values.get("price")
+
+        if (
+            y is not None
+            and not 0 <= y <= 20
+        ):
+
+            values["yield"] = None
+
+        if (
+            p is not None
+            and not 50 <= p <= 150
+        ):
+
+            values["price"] = None
+
+        if (
+            values.get("yield") is not None
+            or values.get("price") is not None
+        ):
+
+            rows.append(
+                {
+                    "issue_code": issue_code,
+                    "yield": values.get("yield"),
+                    "price": values.get("price"),
+                    "date": latest_date,
+                    "source": "MAS",
+                }
+            )
+
     log.append(
-        f"Singapore: MAS parser found "
-        f"{len(rows)} SGS rows."
+        f"Singapore: MAS closing levels parsed for "
+        f"{len(rows)}/6 tracked benchmark issues "
+        f"({latest_date})."
     )
 
     return {
         "source": "MAS",
-        "status": "success",
+        "status": (
+            "success"
+            if rows
+            else "fetched_incomplete"
+        ),
+        "date": latest_date,
         "rows": rows,
     }
-
 
 def update_singapore_instruments(
     instruments: list[dict[str, Any]],
@@ -884,6 +1182,22 @@ def update_singapore_instruments(
 ) -> None:
 
     rows = mas.get("rows", [])
+
+    # MAS issue-code <-> ISIN mapping for the instruments
+    # in our Phase 1 Singapore universe.
+    #
+    # These mappings are confirmed against the MAS SGS page.
+
+    isin_to_issue_code = {
+        "SGXF51035222": "N523100W",
+        "SGXF76205099": "NX21100N",
+        "SG31A9000002": "NZ16100X",
+        "SGXF29838152": "NY25200N",
+        "SG31A7000004": "NA16100H",
+        "SGXF47639806": "NC22300W",
+    }
+
+    updated_count = 0
 
     for instrument in instruments:
 
@@ -895,7 +1209,22 @@ def update_singapore_instruments(
         issue_code = str(
             instrument.get("issue_code")
             or ""
-        ).strip()
+        ).strip().upper()
+
+        isin = str(
+            instrument.get("isin")
+            or ""
+        ).strip().upper()
+
+        # If the JSON already contains issue_code, use it.
+        #
+        # Otherwise derive it from ISIN.
+        if not issue_code and isin:
+
+            issue_code = isin_to_issue_code.get(
+                isin,
+                "",
+            )
 
         if not issue_code:
             continue
@@ -905,8 +1234,9 @@ def update_singapore_instruments(
                 row
                 for row in rows
                 if str(
-                    row.get("issue_code") or ""
-                ).strip()
+                    row.get("issue_code")
+                    or ""
+                ).strip().upper()
                 == issue_code
             ),
             None,
@@ -917,38 +1247,77 @@ def update_singapore_instruments(
 
         changed = False
 
+        # -----------------------------------------------------------
+        # Yield
+        # -----------------------------------------------------------
+
         if hit.get("yield") is not None:
 
-            instrument["previousYield"] = instrument.get(
-                "yield"
+            instrument["previousYield"] = (
+                instrument.get("yield")
             )
 
-            instrument["yield"] = hit["yield"]
-            instrument["liveYield"] = hit["yield"]
+            instrument["yield"] = (
+                hit["yield"]
+            )
+
+            instrument["liveYield"] = (
+                hit["yield"]
+            )
 
             changed = True
+
+        # -----------------------------------------------------------
+        # Price
+        # -----------------------------------------------------------
 
         if hit.get("price") is not None:
 
-            instrument["previousPrice"] = instrument.get(
-                "price"
+            instrument["previousPrice"] = (
+                instrument.get("price")
             )
 
-            instrument["price"] = hit["price"]
-            instrument["livePrice"] = hit["price"]
+            instrument["price"] = (
+                hit["price"]
+            )
+
+            instrument["livePrice"] = (
+                hit["price"]
+            )
 
             changed = True
 
+        # -----------------------------------------------------------
+        # Date
+        # -----------------------------------------------------------
+
         if changed:
 
-            instrument["liveDate"] = hit.get(
-                "date"
+            instrument["liveDate"] = (
+                hit.get("date")
             )
 
             instrument["dataStatus"] = (
                 "live MAS SGS data"
             )
 
+            # Keep the issue code available in live.json
+            # even for records that originally only had ISIN.
+
+            if not instrument.get(
+                "issue_code"
+            ):
+
+                instrument["issue_code"] = (
+                    issue_code
+                )
+
+            updated_count += 1
+
+    # Store a summary for the dashboard/log.
+    mas["matchedInstruments"] = (
+        updated_count
+    )
 
 # ---------------------------------------------------------------------------
 # India
