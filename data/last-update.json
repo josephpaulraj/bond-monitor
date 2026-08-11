@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-11T08:58:48Z",
+  "updatedAt": "2026-08-11T09:24:22Z",
   "status": "partial",
   "instrumentCount": 22,
   "log": [
@@ -8,7 +8,8 @@
     "Hong Kong: loaded 5 instruments from hongkong.json",
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
-    "USA: ERROR Treasury feed returned no date",
+    "USA: Treasury curve updated for 2026-08-10T00:00:00; 14 tenors.",
+    "USA: ERROR name 'update_us_instruments' is not defined",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore: MAS page fetched, but no SGS issue codes were detected.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
