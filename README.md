@@ -1,30 +1,12 @@
-# Bond Monitor
+# Bond Monitor — Phase 2
 
-A multi-market bond research and comparison dashboard.
+Replaces V1 demo data with a source-aware multi-market data model for India, Singapore, Hong Kong and the United States.
 
-## Markets
-- India (INR)
-- Singapore (SGD)
-- Hong Kong (HKD)
-- United States (USD)
+### Data rule
+If an official public source does not provide a current instrument-level quote, the value is stored as `null` and the UI displays `—`. This avoids presenting stale or invented prices/yields as live.
 
-The data model is designed to add more markets later.
+### Fields
+Market, issuer, bond, ISIN/CUSIP/issue code, type, currency, coupon, yield, price, maturity, rating, source, source URL and verification date.
 
-## Version 1
-This first build establishes the multi-market dashboard, filtering, search, summary metrics and bond comparison. **All included records are clearly labelled demo data** and are not live market quotes.
-
-## Structure
-```text
-bond-monitor/
-├── index.html
-├── css/style.css
-├── js/app.js
-└── data/
-    ├── india.json
-    ├── singapore.json
-    ├── hongkong.json
-    └── usa.json
-```
-
-## Disclaimer
-Research/monitoring tool only. Not investment advice. Validate market data against authoritative sources before making investment decisions.
+### Next
+Phase 3: automated daily ingestion, normalized prices/yields, FX conversion, historical snapshots and GitHub Actions updates.

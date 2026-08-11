@@ -1,0 +1,18 @@
+{
+  "India": {
+    "provider": "Reserve Bank of India",
+    "url": "https://www.rbi.org.in/"
+  },
+  "Singapore": {
+    "provider": "Monetary Authority of Singapore",
+    "url": "https://www.mas.gov.sg/"
+  },
+  "Hong Kong": {
+    "provider": "Hong Kong Monetary Authority",
+    "url": "https://www.hkma.gov.hk/"
+  },
+  "United States": {
+    "provider": "U.S. Department of the Treasury / TreasuryDirect",
+    "url": "https://home.treasury.gov/"
+  }
+}
