@@ -138,7 +138,7 @@ def fetch(
             last_error = exc
 
             if attempt < retries:
-                time.sleep(RETRY_DELAY := HTTP_RETRY_DELAY)
+                time.sleep(HTTP_RETRY_DELAY)
 
     raise RuntimeError(
         f"{last_error}"
