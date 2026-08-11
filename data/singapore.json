@@ -1,0 +1,40 @@
+[
+  {
+    "id": "SG-GOV-001",
+    "country": "Singapore",
+    "market": "SG",
+    "currency": "SGD",
+    "issuer": "Singapore Government",
+    "issuer_type": "Government",
+    "bond_name": "2.75% Singapore Government Securities 2035",
+    "isin": "DEMO-SG-001",
+    "coupon": 2.75,
+    "coupon_frequency": "Semi-Annual",
+    "issue_date": "2025-03-01",
+    "maturity_date": "2035-03-01",
+    "yield": 2.63,
+    "rating": "AAA",
+    "minimum_investment": 1000,
+    "callable": false,
+    "puttable": false
+  },
+  {
+    "id": "SG-BANK-001",
+    "country": "Singapore",
+    "market": "SG",
+    "currency": "SGD",
+    "issuer": "Demo Asia Bank",
+    "issuer_type": "Bank",
+    "bond_name": "4.50% Senior Notes 2030",
+    "isin": "DEMO-SG-002",
+    "coupon": 4.5,
+    "coupon_frequency": "Semi-Annual",
+    "issue_date": "2026-02-20",
+    "maturity_date": "2030-02-20",
+    "yield": 4.62,
+    "rating": "AA-",
+    "minimum_investment": 1000,
+    "callable": true,
+    "puttable": false
+  }
+]

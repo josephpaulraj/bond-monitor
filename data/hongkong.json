@@ -1,0 +1,40 @@
+[
+  {
+    "id": "HK-GOV-001",
+    "country": "Hong Kong",
+    "market": "HK",
+    "currency": "HKD",
+    "issuer": "Hong Kong SAR Government",
+    "issuer_type": "Government",
+    "bond_name": "3.20% Government Bond 2036",
+    "isin": "DEMO-HK-001",
+    "coupon": 3.2,
+    "coupon_frequency": "Semi-Annual",
+    "issue_date": "2026-04-01",
+    "maturity_date": "2036-04-01",
+    "yield": 3.15,
+    "rating": "AA+",
+    "minimum_investment": 10000,
+    "callable": false,
+    "puttable": false
+  },
+  {
+    "id": "HK-BANK-001",
+    "country": "Hong Kong",
+    "market": "HK",
+    "currency": "HKD",
+    "issuer": "Demo Hong Kong Bank",
+    "issuer_type": "Bank",
+    "bond_name": "4.10% Senior Note 2031",
+    "isin": "DEMO-HK-002",
+    "coupon": 4.1,
+    "coupon_frequency": "Quarterly",
+    "issue_date": "2026-05-15",
+    "maturity_date": "2031-05-15",
+    "yield": 4.25,
+    "rating": "A+",
+    "minimum_investment": 10000,
+    "callable": true,
+    "puttable": false
+  }
+]

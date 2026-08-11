@@ -1,0 +1,40 @@
+[
+  {
+    "id": "IN-GOV-001",
+    "country": "India",
+    "market": "IN",
+    "currency": "INR",
+    "issuer": "Government of India",
+    "issuer_type": "Government",
+    "bond_name": "7.10% Government Security 2034",
+    "isin": "DEMO-IN-001",
+    "coupon": 7.1,
+    "coupon_frequency": "Semi-Annual",
+    "issue_date": "2024-06-15",
+    "maturity_date": "2034-06-15",
+    "yield": 6.92,
+    "rating": "Sovereign",
+    "minimum_investment": 10000,
+    "callable": false,
+    "puttable": false
+  },
+  {
+    "id": "IN-CORP-001",
+    "country": "India",
+    "market": "IN",
+    "currency": "INR",
+    "issuer": "Demo Infrastructure Ltd",
+    "issuer_type": "Corporate",
+    "bond_name": "8.20% Secured NCD 2031",
+    "isin": "DEMO-IN-002",
+    "coupon": 8.2,
+    "coupon_frequency": "Annual",
+    "issue_date": "2026-01-10",
+    "maturity_date": "2031-01-10",
+    "yield": 8.45,
+    "rating": "AA",
+    "minimum_investment": 10000,
+    "callable": true,
+    "puttable": false
+  }
+]
