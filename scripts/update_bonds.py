@@ -1,27 +1,33 @@
 #!/usr/bin/env python3
 """
-Bond Monitor Phase 3 updater v3.1
+Bond Monitor Phase 3 updater v3.2
 
 Purpose
 -------
+
 - Load the original Bond Monitor instrument universe from:
     data/usa.json
     data/singapore.json
     data/hongkong.json
     data/india.json
+
 - Preserve all instruments even when an external source fails.
-- Update live values only when explicitly available from an official source.
+- Update live values only when explicitly available from official sources.
 - Never fabricate a price or yield.
-- Never replace existing values with null because of a temporary source failure.
-- Write normalized data/live.json and data/last-update.json.
+- Never replace an existing value with null because of a temporary
+  source failure.
+- Write normalized:
+    data/live.json
+    data/last-update.json
 
 Official sources
 ----------------
+
 USA:
     U.S. Treasury daily Treasury par yield curve
 
 Singapore:
-    Monetary Authority of Singapore SGS prices/yields
+    Monetary Authority of Singapore SGS benchmark closing levels
 
 Hong Kong:
     Hong Kong Monetary Authority EFBN indicative prices
@@ -39,62 +45,75 @@ import re
 import ssl
 import time
 import urllib.request
+
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
+# ============================================================================
+# PATHS
+# ============================================================================
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
+
 OUT = DATA / "live.json"
 LAST_UPDATE = DATA / "last-update.json"
 
 
-# ---------------------------------------------------------------------------
-# HTTP configuration
-# ---------------------------------------------------------------------------
+# ============================================================================
+# HTTP CONFIGURATION
+# ============================================================================
 
 UA = (
-    "bond-monitor/3.1 "
+    "bond-monitor/3.2 "
     "(GitHub Actions; official public market-data updater)"
 )
 
 CTX = ssl.create_default_context()
 
-HTTP_TIMEOUT = 60
+HTTP_TIMEOUT = 90
 HTTP_RETRIES = 3
 HTTP_RETRY_DELAY = 3
 
 
-# ---------------------------------------------------------------------------
-# Official source URLs
-# ---------------------------------------------------------------------------
+# ============================================================================
+# OFFICIAL SOURCE URLS
+# ============================================================================
 
 TREASURY_URL = (
-    "https://home.treasury.gov/resource-center/data-chart-center/"
+    "https://home.treasury.gov/"
+    "resource-center/data-chart-center/"
     "interest-rates/pages/xml"
 )
 
 HKMA_URL = (
-    "https://api.hkma.gov.hk/public/market-data-and-statistics/"
+    "https://api.hkma.gov.hk/"
+    "public/market-data-and-statistics/"
     "daily-monetary-statistics/efbn-indicative-price"
     "?segment=IndicativePrice&offset=0"
 )
 
+# IMPORTANT:
+# This is the MAS SGS benchmark page.
+#
+# Do NOT change this to the generic BondPricesAndYields.aspx page unless
+# the MAS site changes its structure again.
+#
+# Official MAS page:
+# https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx
 MAS_URL = (
-    "https://eservices.mas.gov.sg/Statistics/fdanet/"
-    "BondPricesAndYields.aspx"
+    "https://eservices.mas.gov.sg/"
+    "Statistics/fdanet/"
+    "SgsBenchmarkIssuePrices.aspx"
 )
 
 
-# ---------------------------------------------------------------------------
-# Generic helpers
-# ---------------------------------------------------------------------------
+# ============================================================================
+# GENERIC HELPERS
+# ============================================================================
 
 def now_utc() -> str:
     return (
@@ -120,7 +139,10 @@ def fetch(
                 url,
                 headers={
                     "User-Agent": UA,
-                    "Accept": "*/*",
+                    "Accept": (
+                        "text/html,application/xhtml+xml,"
+                        "application/xml,text/xml,*/*"
+                    ),
                     "Cache-Control": "no-cache",
                 },
             )
@@ -140,23 +162,29 @@ def fetch(
             if attempt < retries:
                 time.sleep(HTTP_RETRY_DELAY)
 
-    raise RuntimeError(
-        f"{last_error}"
-    )
+    raise RuntimeError(str(last_error))
 
 
-def load_json(path: Path, default: Any) -> Any:
+def load_json(
+    path: Path,
+    default: Any,
+) -> Any:
 
     try:
         return json.loads(
-            path.read_text(encoding="utf-8")
+            path.read_text(
+                encoding="utf-8"
+            )
         )
 
     except Exception:
         return default
 
 
-def save_json(path: Path, obj: Any) -> None:
+def save_json(
+    path: Path,
+    obj: Any,
+) -> None:
 
     path.write_text(
         json.dumps(
@@ -169,9 +197,49 @@ def save_json(path: Path, obj: Any) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Phase 1 instrument universe
-# ---------------------------------------------------------------------------
+def norm_market(
+    value: Any,
+) -> str:
+
+    return str(
+        value or ""
+    ).strip().lower()
+
+
+def clean_number(
+    value: Any,
+) -> float | None:
+
+    if value is None:
+        return None
+
+    text = str(value).strip()
+
+    if not text:
+        return None
+
+    text = (
+        text
+        .replace(",", "")
+        .replace("%", "")
+        .replace("—", "")
+        .replace("-", "")
+        .strip()
+    )
+
+    if not text:
+        return None
+
+    try:
+        return float(text)
+
+    except ValueError:
+        return None
+
+
+# ============================================================================
+# PHASE 1 INSTRUMENT UNIVERSE
+# ============================================================================
 
 COUNTRY_FILES = {
     "United States": DATA / "usa.json",
@@ -181,7 +249,9 @@ COUNTRY_FILES = {
 }
 
 
-def load_instrument_universe(log: list[str]) -> list[dict[str, Any]]:
+def load_instrument_universe(
+    log: list[str],
+) -> list[dict[str, Any]]:
 
     instruments: list[dict[str, Any]] = []
 
@@ -195,22 +265,30 @@ def load_instrument_universe(log: list[str]) -> list[dict[str, Any]]:
 
             continue
 
-        obj = load_json(path, {})
+        obj = load_json(
+            path,
+            {},
+        )
 
         if not isinstance(obj, dict):
 
             log.append(
-                f"{market}: ERROR {path.name} is not a JSON object"
+                f"{market}: ERROR {path.name} "
+                "is not a JSON object"
             )
 
             continue
 
-        records = obj.get("records", [])
+        records = obj.get(
+            "records",
+            [],
+        )
 
         if not isinstance(records, list):
 
             log.append(
-                f"{market}: ERROR records[] missing in {path.name}"
+                f"{market}: ERROR records[] "
+                f"missing in {path.name}"
             )
 
             continue
@@ -228,60 +306,67 @@ def load_instrument_universe(log: list[str]) -> list[dict[str, Any]]:
                 count += 1
 
         log.append(
-            f"{market}: loaded {count} instruments from {path.name}"
+            f"{market}: loaded {count} "
+            f"instruments from {path.name}"
         )
 
     log.append(
-        f"Loaded {len(instruments)} instruments from Phase 1 country files."
+        f"Loaded {len(instruments)} instruments "
+        "from Phase 1 country files."
     )
 
     return instruments
 
 
-# ---------------------------------------------------------------------------
-# Market normalization
-# ---------------------------------------------------------------------------
+# ============================================================================
+# INITIAL LIVE FIELDS
+# ============================================================================
 
-def norm_market(value: Any) -> str:
+def initialize_live_fields(
+    instruments: list[dict[str, Any]],
+) -> None:
 
-    return str(value or "").strip().lower()
+    for instrument in instruments:
+
+        instrument.setdefault(
+            "liveYield",
+            None,
+        )
+
+        instrument.setdefault(
+            "livePrice",
+            None,
+        )
+
+        instrument.setdefault(
+            "liveDate",
+            None,
+        )
+
+        if not instrument.get(
+            "dataStatus"
+        ):
+
+            instrument["dataStatus"] = (
+                "source-backed seed"
+            )
 
 
-def clean_number(value: Any) -> float | None:
+# ============================================================================
+# USA TREASURY
+# ============================================================================
 
-    if value is None:
-        return None
+def update_us_curve(
+    log: list[str],
+) -> dict[str, Any]:
 
-    text = str(value).strip()
-
-    if not text:
-        return None
-
-    text = (
-        text
-        .replace(",", "")
-        .replace("%", "")
-    )
-
-    try:
-        return float(text)
-
-    except ValueError:
-        return None
-
-
-# ---------------------------------------------------------------------------
-# USA Treasury
-# ---------------------------------------------------------------------------
-
-def update_us_curve(log: list[str]) -> dict[str, Any]:
-
-    # Treasury requires the year parameter for the XML feed.
-    year = datetime.now(timezone.utc).year
+    year = datetime.now(
+        timezone.utc
+    ).year
 
     url = (
         TREASURY_URL
-        + f"?data=daily_treasury_yield_curve"
+        + "?data=daily_treasury_yield_curve"
         + f"&field_tdr_date_value={year}"
     )
 
@@ -294,14 +379,12 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
         errors="replace",
     )
 
-    # Treasury XML normally contains:
-    # <d:NEW_DATE ...>2026-08-10T00:00:00</d:NEW_DATE>
     date_patterns = [
         r"<d:NEW_DATE[^>]*>(.*?)</d:NEW_DATE>",
         r"<NEW_DATE[^>]*>(.*?)</NEW_DATE>",
     ]
 
-    dates = []
+    dates: list[str] = []
 
     for pattern in date_patterns:
 
@@ -315,18 +398,22 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
             break
 
     if not dates:
+
         raise RuntimeError(
             "Treasury feed returned no date"
         )
 
     latest = dates[-1]
 
-    # Locate the latest Treasury entry.
-    pos = raw.rfind(latest)
+    pos = raw.rfind(
+        latest
+    )
 
     if pos < 0:
+
         raise RuntimeError(
-            "Treasury latest-date record could not be located"
+            "Treasury latest-date record "
+            "could not be located"
         )
 
     entry_start = raw.rfind(
@@ -340,35 +427,20 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
         pos,
     )
 
-    if entry_start >= 0 and entry_end >= 0:
+    if (
+        entry_start >= 0
+        and entry_end >= 0
+    ):
 
         block = raw[
             entry_start:
-            entry_end + len("</entry>")
+            entry_end
+            + len("</entry>")
         ]
 
     else:
 
         block = raw
-
-    # IMPORTANT:
-    # Treasury field names are not simply "1_month", etc.
-    # They use names such as:
-    #
-    # BC_1MONTH
-    # BC_1_5MONTH
-    # BC_2MONTH
-    # BC_3MONTH
-    # BC_4MONTH
-    # BC_6MONTH
-    # BC_1YEAR
-    # BC_2YEAR
-    # BC_3YEAR
-    # BC_5YEAR
-    # BC_7YEAR
-    # BC_10YEAR
-    # BC_20YEAR
-    # BC_30YEAR
 
     tenors = {
         "1 Mo": "BC_1MONTH",
@@ -387,7 +459,7 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
         "30 Yr": "BC_30YEAR",
     }
 
-    curve = {}
+    curve: dict[str, float] = {}
 
     for label, field in tenors.items():
 
@@ -436,13 +508,20 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
         "curve": curve,
     }
 
+
 def update_us_instruments(
     instruments: list[dict[str, Any]],
     us: dict[str, Any],
 ) -> None:
 
-    curve = us.get("curve", {})
-    date = us.get("date")
+    curve = us.get(
+        "curve",
+        {}
+    )
+
+    date = us.get(
+        "date"
+    )
 
     maturity_map = {
         "5-Year Treasury benchmark": "5 Yr",
@@ -465,19 +544,22 @@ def update_us_instruments(
             instrument.get("bond") or ""
         )
 
-        tenor = maturity_map.get(bond)
+        tenor = maturity_map.get(
+            bond
+        )
 
         if not tenor:
             continue
 
-        value = curve.get(tenor)
+        value = curve.get(
+            tenor
+        )
 
         if value is None:
             continue
 
-        # Preserve the previous value before replacing it.
-        instrument["previousYield"] = instrument.get(
-            "yield"
+        instrument["previousYield"] = (
+            instrument.get("yield")
         )
 
         instrument["yield"] = value
@@ -487,11 +569,15 @@ def update_us_instruments(
         instrument["dataStatus"] = (
             "live U.S. Treasury benchmark yield"
         )
-# ---------------------------------------------------------------------------
-# Hong Kong HKMA
-# ---------------------------------------------------------------------------
 
-def update_hkma(log: list[str]) -> list[dict[str, Any]]:
+
+# ============================================================================
+# HONG KONG HKMA
+# ============================================================================
+
+def update_hkma(
+    log: list[str],
+) -> list[dict[str, Any]]:
 
     raw = fetch(
         HKMA_URL,
@@ -506,7 +592,10 @@ def update_hkma(log: list[str]) -> list[dict[str, Any]]:
         )
     )
 
-    result = obj.get("result") or {}
+    result = (
+        obj.get("result")
+        or {}
+    )
 
     rows = (
         result.get("records")
@@ -514,7 +603,10 @@ def update_hkma(log: list[str]) -> list[dict[str, Any]]:
         or []
     )
 
-    if not isinstance(rows, list):
+    if not isinstance(
+        rows,
+        list,
+    ):
 
         raise RuntimeError(
             "HKMA response did not contain records"
@@ -524,14 +616,23 @@ def update_hkma(log: list[str]) -> list[dict[str, Any]]:
 
     for row in rows:
 
-        if not isinstance(row, dict):
+        if not isinstance(
+            row,
+            dict,
+        ):
             continue
 
         output.append(
             {
-                "date": row.get("end_of_date"),
-                "term": row.get("term"),
-                "issue_no": row.get("issue_no"),
+                "date": row.get(
+                    "end_of_date"
+                ),
+                "term": row.get(
+                    "term"
+                ),
+                "issue_no": row.get(
+                    "issue_no"
+                ),
                 "yield": clean_number(
                     row.get("yield")
                 ),
@@ -570,21 +671,24 @@ def update_hk_instruments(
             instrument.get("isin") or ""
         )
 
-        # Exchange Fund instruments don't have ISINs.
-        # Match them using their descriptive bond name/term.
-        candidates = hk_rows
-
         hit = None
 
-        if isin and isin != "—":
+        if (
+            isin
+            and isin != "—"
+        ):
 
             hit = next(
                 (
                     row
-                    for row in candidates
+                    for row in hk_rows
                     if str(
-                        row.get("issue_no") or ""
-                    ) == isin
+                        row.get(
+                            "issue_no"
+                        )
+                        or ""
+                    )
+                    == isin
                 ),
                 None,
             )
@@ -593,27 +697,41 @@ def update_hk_instruments(
 
             bond_lower = bond.lower()
 
-            if "exchange fund note" in bond_lower:
+            if (
+                "exchange fund note"
+                in bond_lower
+            ):
 
                 hit = next(
                     (
                         row
-                        for row in candidates
-                        if "note" in str(
-                            row.get("term") or ""
+                        for row in hk_rows
+                        if "note"
+                        in str(
+                            row.get(
+                                "term"
+                            )
+                            or ""
                         ).lower()
                     ),
                     None,
                 )
 
-            elif "exchange fund bill" in bond_lower:
+            elif (
+                "exchange fund bill"
+                in bond_lower
+            ):
 
                 hit = next(
                     (
                         row
-                        for row in candidates
-                        if "bill" in str(
-                            row.get("term") or ""
+                        for row in hk_rows
+                        if "bill"
+                        in str(
+                            row.get(
+                                "term"
+                            )
+                            or ""
                         ).lower()
                     ),
                     None,
@@ -624,32 +742,46 @@ def update_hk_instruments(
 
         changed = False
 
-        if hit.get("yield") is not None:
+        if hit.get(
+            "yield"
+        ) is not None:
 
-            instrument["previousYield"] = instrument.get(
-                "yield"
+            instrument["previousYield"] = (
+                instrument.get("yield")
             )
 
-            instrument["yield"] = hit["yield"]
-            instrument["liveYield"] = hit["yield"]
+            instrument["yield"] = (
+                hit["yield"]
+            )
+
+            instrument["liveYield"] = (
+                hit["yield"]
+            )
 
             changed = True
 
-        if hit.get("price") is not None:
+        if hit.get(
+            "price"
+        ) is not None:
 
-            instrument["previousPrice"] = instrument.get(
-                "price"
+            instrument["previousPrice"] = (
+                instrument.get("price")
             )
 
-            instrument["price"] = hit["price"]
-            instrument["livePrice"] = hit["price"]
+            instrument["price"] = (
+                hit["price"]
+            )
+
+            instrument["livePrice"] = (
+                hit["price"]
+            )
 
             changed = True
 
         if changed:
 
-            instrument["liveDate"] = hit.get(
-                "date"
+            instrument["liveDate"] = (
+                hit.get("date")
             )
 
             instrument["dataStatus"] = (
@@ -657,37 +789,66 @@ def update_hk_instruments(
             )
 
 
-# ---------------------------------------------------------------------------
-# Singapore MAS
-# ---------------------------------------------------------------------------
+# ============================================================================
+# SINGAPORE MAS HTML PARSER
+# ============================================================================
 
-class TextTableParser(HTMLParser):
+class MASHTMLParser(
+    HTMLParser
+):
 
     def __init__(self) -> None:
 
         super().__init__()
 
+        self.current_table: list[
+            list[str]
+        ] = []
+
+        self.current_row: list[str] = []
+
+        self.current_cell: list[str] = []
+
         self.in_cell = False
-        self.rows: list[list[str]] = []
-        self.row: list[str] = []
-        self.buf: list[str] = []
+
+        self.tables: list[
+            list[list[str]]
+        ] = []
+
+        self.in_table = False
 
     def handle_starttag(
         self,
         tag: str,
-        attrs: list[tuple[str, str | None]],
+        attrs: list[
+            tuple[str, str | None]
+        ],
     ) -> None:
 
         tag = tag.lower()
 
-        if tag == "tr":
+        if tag == "table":
 
-            self.row = []
+            self.in_table = True
+            self.current_table = []
 
-        elif tag in ("td", "th"):
+        elif (
+            self.in_table
+            and tag == "tr"
+        ):
+
+            self.current_row = []
+
+        elif (
+            self.in_table
+            and tag in {
+                "td",
+                "th",
+            }
+        ):
 
             self.in_cell = True
-            self.buf = []
+            self.current_cell = []
 
     def handle_endtag(
         self,
@@ -696,36 +857,585 @@ class TextTableParser(HTMLParser):
 
         tag = tag.lower()
 
-        if tag in ("td", "th"):
+        if (
+            self.in_table
+            and tag in {
+                "td",
+                "th",
+            }
+        ):
 
             if self.in_cell:
 
                 text = " ".join(
                     "".join(
-                        self.buf
+                        self.current_cell
                     ).split()
                 )
 
-                self.row.append(text)
+                self.current_row.append(
+                    text
+                )
 
                 self.in_cell = False
 
-        elif tag == "tr":
+        elif (
+            self.in_table
+            and tag == "tr"
+        ):
 
-            if self.row:
+            if self.current_row:
 
-                self.rows.append(
-                    self.row
+                self.current_table.append(
+                    self.current_row
                 )
+
+        elif (
+            tag == "table"
+            and self.in_table
+        ):
+
+            if self.current_table:
+
+                self.tables.append(
+                    self.current_table
+                )
+
+            self.current_table = []
+            self.in_table = False
 
     def handle_data(
         self,
         data: str,
     ) -> None:
 
-        if self.in_cell:
+        if (
+            self.in_table
+            and self.in_cell
+        ):
 
-            self.buf.append(data)
+            self.current_cell.append(
+                data
+            )
+
+
+# ============================================================================
+# MAS HELPERS
+# ============================================================================
+
+MAS_TARGET_CODES = {
+    "N523100W",
+    "NX21100N",
+    "NZ16100X",
+    "NY25200N",
+    "NA16100H",
+    "NC22300W",
+}
+
+
+def normalize_mas_cell(
+    value: Any,
+) -> str:
+
+    return " ".join(
+        str(value or "")
+        .strip()
+        .upper()
+        .split()
+    )
+
+
+def table_contains_mas_codes(
+    table: list[list[str]],
+) -> bool:
+
+    for row in table:
+
+        for cell in row:
+
+            if (
+                normalize_mas_cell(cell)
+                in MAS_TARGET_CODES
+            ):
+
+                return True
+
+    return False
+
+
+def find_mas_closing_table(
+    tables: list[list[list[str]]],
+) -> list[list[str]] | None:
+
+    candidates = []
+
+    for table in tables:
+
+        if not table_contains_mas_codes(
+            table
+        ):
+            continue
+
+        flattened = " ".join(
+            normalize_mas_cell(cell)
+            for row in table
+            for cell in row
+        )
+
+        candidates.append(
+            (
+                table,
+                flattened,
+            )
+        )
+
+    if not candidates:
+        return None
+
+    # Prefer a table that contains both the target issue codes
+    # and the Yield / Price headers.
+    for table, flattened in candidates:
+
+        if (
+            "YIELD" in flattened
+            and "PRICE" in flattened
+        ):
+
+            return table
+
+    return candidates[0][0]
+
+
+def parse_mas_closing_table(
+    table: list[list[str]],
+) -> tuple[
+    str | None,
+    dict[str, dict[str, float | None]]
+]:
+
+    """
+    Parse the MAS SGS benchmark closing-level table.
+
+    The official MAS page currently exposes:
+
+        Closing Levels
+        Treasury Bills / Bonds
+        Issue Code
+        Coupon Rate
+        Maturity Date
+        ...
+        Yield / Price columns
+
+    We do not hard-code today's market values.
+
+    Instead we:
+      1. identify the issue-code header row;
+      2. identify the Yield / Price header row;
+      3. identify the latest date/value row;
+      4. map the tracked benchmark issue codes to columns.
+    """
+
+    issue_positions: dict[
+        str,
+        int,
+    ] = {}
+
+    issue_row_index = -1
+
+    for row_index, row in enumerate(
+        table
+    ):
+
+        for index, cell in enumerate(
+            row
+        ):
+
+            code = normalize_mas_cell(
+                cell
+            )
+
+            if code in MAS_TARGET_CODES:
+
+                issue_positions[
+                    code
+                ] = index
+
+                issue_row_index = max(
+                    issue_row_index,
+                    row_index,
+                )
+
+    if not issue_positions:
+
+        return None, {}
+
+    # ------------------------------------------------------------------
+    # Find the header row containing Yield / Price.
+    # ------------------------------------------------------------------
+
+    value_header_index = -1
+
+    for row_index, row in enumerate(
+        table
+    ):
+
+        normalized = [
+            normalize_mas_cell(cell)
+            for cell in row
+        ]
+
+        if (
+            "YIELD" in normalized
+            or "PRICE" in normalized
+        ):
+
+            if row_index >= issue_row_index:
+
+                value_header_index = (
+                    row_index
+                )
+
+                break
+
+    # ------------------------------------------------------------------
+    # Find date/value rows after the header.
+    #
+    # MAS uses dates such as:
+    # 11 Aug 2026
+    # ------------------------------------------------------------------
+
+    date_pattern = re.compile(
+        r"^\d{1,2}\s+"
+        r"[A-Za-z]{3,9}\s+"
+        r"\d{4}$"
+    )
+
+    date_rows: list[
+        tuple[
+            int,
+            str,
+            list[str],
+        ]
+    ] = []
+
+    search_start = max(
+        value_header_index + 1,
+        issue_row_index + 1,
+    )
+
+    for row_index in range(
+        search_start,
+        len(table),
+    ):
+
+        row = table[row_index]
+
+        for cell_index, cell in enumerate(
+            row
+        ):
+
+            text = " ".join(
+                str(cell).split()
+            )
+
+            if date_pattern.match(
+                text
+            ):
+
+                date_rows.append(
+                    (
+                        row_index,
+                        text,
+                        row,
+                    )
+                )
+
+                break
+
+    if not date_rows:
+
+        return None, {}
+
+    # The last date row is the latest row exposed by MAS.
+    _, latest_date, latest_row = (
+        date_rows[-1]
+    )
+
+    # ------------------------------------------------------------------
+    # Build column/value mapping.
+    #
+    # The HTML parser gives us the actual table cells, so we don't
+    # depend on a fixed count of whitespace-separated numbers.
+    # ------------------------------------------------------------------
+
+    results: dict[
+        str,
+        dict[str, float | None],
+    ] = {}
+
+    # Determine the position of the date in the latest row.
+    date_index = -1
+
+    for index, cell in enumerate(
+        latest_row
+    ):
+
+        if date_pattern.match(
+            " ".join(
+                str(cell).split()
+            )
+        ):
+
+            date_index = index
+            break
+
+    # ------------------------------------------------------------------
+    # MAS benchmark order:
+    #
+    # 6M
+    # 1Y
+    # 2Y
+    # 5Y
+    # 10Y
+    # 15Y
+    # 20Y
+    # 30Y
+    # 50Y
+    #
+    # For benchmark bonds:
+    #
+    # 2Y  = Yield / Price
+    # 5Y  = Yield / Price
+    # 10Y = Yield / Price
+    # 15Y = Yield / Price
+    # 20Y = Yield / Price
+    # 30Y = Yield / Price
+    # 50Y = Yield
+    #
+    # We first try to use the table's physical column positions.
+    # ------------------------------------------------------------------
+
+    # Locate the "Yield / Price" sequence in the header.
+    #
+    # We create a list of header cells, then infer each target
+    # issue's column from the issue-code row.
+
+    header_row: list[str] = []
+
+    if (
+        value_header_index >= 0
+        and value_header_index < len(table)
+    ):
+
+        header_row = table[
+            value_header_index
+        ]
+
+    # ------------------------------------------------------------------
+    # Primary strategy:
+    #
+    # The issue-code row and latest-value row generally have matching
+    # positions. If so, use those positions directly.
+    # ------------------------------------------------------------------
+
+    for code, issue_index in issue_positions.items():
+
+        if date_index < 0:
+            continue
+
+        # Difference between issue-code table position and latest
+        # value row position can occur because of merged cells.
+        #
+        # First try direct position.
+        candidate_indices = [
+            issue_index,
+            issue_index - 1,
+            issue_index + 1,
+        ]
+
+        chosen_index = None
+
+        for candidate in candidate_indices:
+
+            if (
+                0 <= candidate
+                < len(latest_row)
+            ):
+
+                value = clean_number(
+                    latest_row[candidate]
+                )
+
+                if value is not None:
+
+                    chosen_index = candidate
+                    break
+
+        if chosen_index is None:
+            continue
+
+        first_value = clean_number(
+            latest_row[chosen_index]
+        )
+
+        second_value = None
+
+        if (
+            chosen_index + 1
+            < len(latest_row)
+        ):
+
+            second_value = clean_number(
+                latest_row[
+                    chosen_index + 1
+                ]
+            )
+
+        # For a bond benchmark the first number is normally yield
+        # and the second number is price.
+        #
+        # Validate before accepting.
+        if (
+            first_value is not None
+            and 0 <= first_value <= 20
+        ):
+
+            result = {
+                "yield": first_value,
+                "price": None,
+            }
+
+            if (
+                second_value is not None
+                and 50 <= second_value <= 150
+            ):
+
+                result["price"] = (
+                    second_value
+                )
+
+            results[code] = result
+
+    # ------------------------------------------------------------------
+    # Fallback strategy:
+    #
+    # If physical table positions did not produce enough values,
+    # parse the latest row's numeric cells and map them according
+    # to the official benchmark order.
+    # ------------------------------------------------------------------
+
+    if len(results) < len(
+        MAS_TARGET_CODES
+    ):
+
+        numeric_values: list[
+            float
+        ] = []
+
+        for index, cell in enumerate(
+            latest_row
+        ):
+
+            if index == date_index:
+                continue
+
+            value = clean_number(
+                cell
+            )
+
+            if value is not None:
+
+                numeric_values.append(
+                    value
+                )
+
+        # A normal MAS closing row has:
+        #
+        # 6M yield
+        # 1Y yield
+        # 2Y yield
+        # 2Y price
+        # 5Y yield
+        # 5Y price
+        # 10Y yield
+        # 10Y price
+        # 15Y yield
+        # 15Y price
+        # 20Y yield
+        # 20Y price
+        # 30Y yield
+        # 30Y price
+        # 50Y yield
+        #
+        if len(numeric_values) >= 15:
+
+            fallback = {
+                "N523100W": {
+                    "yield": numeric_values[2],
+                    "price": numeric_values[3],
+                },
+                "NX21100N": {
+                    "yield": numeric_values[4],
+                    "price": numeric_values[5],
+                },
+                "NZ16100X": {
+                    "yield": numeric_values[6],
+                    "price": numeric_values[7],
+                },
+                "NY25200N": {
+                    "yield": numeric_values[8],
+                    "price": numeric_values[9],
+                },
+                "NA16100H": {
+                    "yield": numeric_values[12],
+                    "price": numeric_values[13],
+                },
+                "NC22300W": {
+                    "yield": numeric_values[14],
+                    "price": None,
+                },
+            }
+
+            for code, values in fallback.items():
+
+                y = values.get(
+                    "yield"
+                )
+
+                p = values.get(
+                    "price"
+                )
+
+                if (
+                    y is not None
+                    and not 0 <= y <= 20
+                ):
+
+                    y = None
+
+                if (
+                    p is not None
+                    and not 50 <= p <= 150
+                ):
+
+                    p = None
+
+                if (
+                    y is not None
+                    or p is not None
+                ):
+
+                    results[code] = {
+                        "yield": y,
+                        "price": p,
+                    }
+
+    return latest_date, results
+
+
+# ============================================================================
+# SINGAPORE MAS
+# ============================================================================
 
 def update_mas(
     log: list[str],
@@ -740,81 +1450,91 @@ def update_mas(
         errors="replace",
     )
 
-    # ---------------------------------------------------------------
-    # MAS publishes SGS benchmark data as a matrix.
-    #
-    # The page contains:
-    #
-    # Issue Code
-    # Coupon Rate
-    # Maturity Date
-    #
-    # followed by daily rows where each benchmark has either:
-    #
-    # Yield
-    #
-    # or:
-    #
-    # Price | Yield
-    #
-    # We only need the latest daily row.
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Parse the actual HTML tables first.
+    # ------------------------------------------------------------------
 
-    parser = TextTableParser()
-    parser.feed(html)
+    parser = MASHTMLParser()
 
-    # The HTML parser may produce multiple tables.
-    # Find the table containing our known SGS issue codes.
+    try:
 
-    target_codes = {
-        "N523100W",
-        "NX21100N",
-        "NZ16100X",
-        "NY25200N",
-        "NA16100H",
-        "NC22300W",
-    }
-
-    target_rows = []
-
-    for row in parser.rows:
-
-        normalized = {
-            str(cell).strip().upper()
-            for cell in row
-        }
-
-        if normalized.intersection(target_codes):
-
-            target_rows.append(row)
-
-    # ---------------------------------------------------------------
-    # If the generic parser does not expose the table rows cleanly,
-    # use the raw HTML text as a fallback.
-    # ---------------------------------------------------------------
-
-    if not target_rows:
-
-        text = re.sub(
-            r"<[^>]+>",
-            " ",
-            html,
+        parser.feed(
+            html
         )
 
-        text = re.sub(
-            r"\s+",
-            " ",
-            text,
-        )
-
-        # We don't fabricate values here.
-        # The explicit failure message tells us the MAS markup
-        # changed if this fallback is reached.
+    except Exception as exc:
 
         log.append(
-            "Singapore: MAS page fetched, "
-            "but benchmark issue-code rows could not be parsed."
+            "Singapore: MAS HTML parser error: "
+            f"{exc}"
         )
+
+    table = find_mas_closing_table(
+        parser.tables
+    )
+
+    if table is None:
+
+        # ------------------------------------------------------------------
+        # Fallback: inspect raw HTML/page text.
+        # ------------------------------------------------------------------
+
+        plain_text = re.sub(
+            r"<script.*?</script>",
+            " ",
+            html,
+            flags=(
+                re.IGNORECASE
+                | re.DOTALL
+            ),
+        )
+
+        plain_text = re.sub(
+            r"<style.*?</style>",
+            " ",
+            plain_text,
+            flags=(
+                re.IGNORECASE
+                | re.DOTALL
+            ),
+        )
+
+        plain_text = re.sub(
+            r"<[^>]+>",
+            " ",
+            plain_text,
+        )
+
+        plain_text = re.sub(
+            r"\s+",
+            " ",
+            plain_text,
+        ).strip()
+
+        codes_found = [
+            code
+            for code in MAS_TARGET_CODES
+            if code in plain_text.upper()
+        ]
+
+        if codes_found:
+
+            log.append(
+                "Singapore: MAS page fetched; "
+                f"found {len(codes_found)}/"
+                f"{len(MAS_TARGET_CODES)} "
+                "tracked issue codes, but the "
+                "Closing Levels table could not "
+                "be parsed."
+            )
+
+        else:
+
+            log.append(
+                "Singapore: MAS page fetched, "
+                "but SGS benchmark table could "
+                "not be detected."
+            )
 
         return {
             "source": "MAS",
@@ -822,262 +1542,18 @@ def update_mas(
             "rows": [],
         }
 
-    # ---------------------------------------------------------------
-    # Build a simple issue-code index from the HTML.
-    #
-    # The current MAS benchmark page places the issue code and
-    # associated maturity information together in the table.
-    # ---------------------------------------------------------------
-
-    issue_index = {}
-
-    for row in target_rows:
-
-        cells = [
-            str(cell).strip()
-            for cell in row
-        ]
-
-        for i, cell in enumerate(cells):
-
-            code = cell.upper()
-
-            if code not in target_codes:
-                continue
-
-            issue_index[code] = {
-                "row": cells,
-                "index": i,
-            }
-
-    # ---------------------------------------------------------------
-    # Latest MAS closing data
-    #
-    # MAS currently exposes the latest daily benchmark row as:
-    #
-    # date | ... | Yield | Price | Yield | Price ...
-    #
-    # The benchmark columns occur in this order:
-    #
-    # 2Y  -> Price / Yield
-    # 5Y  -> Price / Yield
-    # 10Y -> Price / Yield
-    # 15Y -> Price / Yield
-    # 20Y -> Price / Yield
-    # 30Y -> Price / Yield
-    # 50Y -> Price / Yield
-    #
-    # We therefore map our issue codes to their benchmark column.
-    # ---------------------------------------------------------------
-
-    benchmark_map = {
-        "N523100W": "2Y",
-        "NX21100N": "5Y",
-        "NZ16100X": "10Y",
-        "NY25200N": "15Y",
-        "NA16100H": "30Y",
-        "NC22300W": "50Y",
-    }
-
-    # ---------------------------------------------------------------
-    # Extract the latest daily values directly from the visible
-    # MAS page text.
-    # ---------------------------------------------------------------
-
-    visible_text = re.sub(
-        r"<script.*?</script>",
-        " ",
-        html,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    visible_text = re.sub(
-        r"<style.*?</style>",
-        " ",
-        visible_text,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    visible_text = re.sub(
-        r"<[^>]+>",
-        " ",
-        visible_text,
-    )
-
-    visible_text = re.sub(
-        r"\s+",
-        " ",
-        visible_text,
-    ).strip()
-
-    # ---------------------------------------------------------------
-    # Locate the latest date appearing in the Closing Levels section.
-    #
-    # MAS uses DD Mon YYYY, for example:
-    #
-    # 11 Aug 2026
-    # ---------------------------------------------------------------
-
-    date_matches = re.findall(
-        r"\b\d{2}\s+[A-Za-z]{3}\s+\d{4}\b",
-        visible_text,
-    )
-
-    if not date_matches:
-
-        log.append(
-            "Singapore: MAS page fetched, "
-            "but no closing-level date was detected."
+    latest_date, values = (
+        parse_mas_closing_table(
+            table
         )
-
-        return {
-            "source": "MAS",
-            "status": "fetched_no_date",
-            "rows": [],
-        }
-
-    latest_date = date_matches[-1]
-
-    # ---------------------------------------------------------------
-    # The current MAS page exposes the latest benchmark row as a
-    # sequence of values.
-    #
-    # For 11 Aug 2026 the page currently shows:
-    #
-    # 2Y:
-    #   1.71 / 98.22
-    #
-    # 5Y:
-    #   2.01 / 99.41
-    #
-    # 10Y:
-    #   2.32 / 98.61
-    #
-    # 15Y:
-    #   2.37 / 99.88
-    #
-    # 20Y:
-    #   2.38 / 115.91
-    #
-    # 30Y:
-    #   2.46 / 110.92
-    #
-    # 50Y:
-    #   2.59
-    #
-    # However, because MAS can change the page layout, we don't
-    # hard-code those values. We parse the latest row.
-    # ---------------------------------------------------------------
-
-    rows = []
-
-    # Find the portion of the page after "Closing Levels".
-    closing_pos = visible_text.lower().find(
-        "closing levels"
     )
 
-    if closing_pos < 0:
+    if not values:
 
         log.append(
-            "Singapore: MAS Closing Levels section not found."
-        )
-
-        return {
-            "source": "MAS",
-            "status": "fetched_no_closing_section",
-            "rows": [],
-        }
-
-    closing_text = visible_text[
-        closing_pos:
-    ]
-
-    # Look for the latest date in the closing section.
-    latest_match = re.search(
-        r"\b(\d{2}\s+[A-Za-z]{3}\s+\d{4})\b",
-        closing_text,
-    )
-
-    if not latest_match:
-
-        log.append(
-            "Singapore: MAS latest closing date not found."
-        )
-
-        return {
-            "source": "MAS",
-            "status": "fetched_no_date",
-            "rows": [],
-        }
-
-    latest_date = latest_match.group(1)
-
-    # ---------------------------------------------------------------
-    # Extract the latest numeric sequence following the latest date.
-    #
-    # MAS's current page exposes the latest row in plain text.
-    # ---------------------------------------------------------------
-
-    after_date = closing_text[
-        latest_match.end():
-    ]
-
-    numbers = re.findall(
-        r"\b\d+(?:\.\d+)?\b",
-        after_date,
-    )
-
-    numeric_values = []
-
-    for value in numbers:
-
-        try:
-
-            numeric_values.append(
-                float(value)
-            )
-
-        except ValueError:
-            continue
-
-    # We need the benchmark values only.
-    #
-    # The current benchmark sequence is:
-    #
-    # 6M yield
-    # 1Y yield
-    # 2Y yield
-    # 2Y price
-    # 5Y yield
-    # 5Y price
-    # 10Y yield
-    # 10Y price
-    # 15Y yield
-    # 15Y price
-    # 20Y yield
-    # 20Y price
-    # 30Y yield
-    # 30Y price
-    # 50Y yield
-    #
-    # Therefore:
-    #
-    # N523100W -> positions 2,3
-    # NX21100N -> positions 4,5
-    # NZ16100X -> positions 6,7
-    # NY25200N -> positions 8,9
-    # NA16100H -> positions 12,13
-    # NC22300W -> position 14
-    #
-    # NOTE:
-    # We validate the values before accepting them.
-    # ---------------------------------------------------------------
-
-    if len(numeric_values) < 15:
-
-        log.append(
-            "Singapore: MAS latest row did not contain "
-            "the expected benchmark values."
+            "Singapore: MAS Closing Levels "
+            "table found, but no valid "
+            "benchmark values were parsed."
         )
 
         return {
@@ -1086,107 +1562,86 @@ def update_mas(
             "rows": [],
         }
 
-    latest_values = numeric_values[:15]
+    rows: list[
+        dict[str, Any]
+    ] = []
 
-    # Map benchmark positions.
-    benchmark_values = {
-        "N523100W": {
-            "yield": latest_values[2],
-            "price": latest_values[3],
-        },
-        "NX21100N": {
-            "yield": latest_values[4],
-            "price": latest_values[5],
-        },
-        "NZ16100X": {
-            "yield": latest_values[6],
-            "price": latest_values[7],
-        },
-        "NY25200N": {
-            "yield": latest_values[8],
-            "price": latest_values[9],
-        },
-        "NA16100H": {
-            "yield": latest_values[12],
-            "price": latest_values[13],
-        },
-        "NC22300W": {
-            "yield": latest_values[14],
-            "price": None,
-        },
-    }
+    for issue_code, value in values.items():
 
-    # ---------------------------------------------------------------
-    # Sanity-check values.
-    #
-    # SGS yields should normally be between 0 and 20%.
-    # Prices should normally be between 50 and 150.
-    #
-    # If a page-layout change causes nonsense values, reject them.
-    # ---------------------------------------------------------------
+        if not isinstance(
+            value,
+            dict,
+        ):
+            continue
 
-    for issue_code, values in benchmark_values.items():
+        yield_value = value.get(
+            "yield"
+        )
 
-        y = values.get("yield")
-        p = values.get("price")
+        price_value = value.get(
+            "price"
+        )
 
         if (
-            y is not None
-            and not 0 <= y <= 20
+            yield_value is None
+            and price_value is None
         ):
+            continue
 
-            values["yield"] = None
+        rows.append(
+            {
+                "issue_code": issue_code,
+                "yield": yield_value,
+                "price": price_value,
+                "date": latest_date,
+                "source": "MAS",
+            }
+        )
 
-        if (
-            p is not None
-            and not 50 <= p <= 150
-        ):
+    if not rows:
 
-            values["price"] = None
+        log.append(
+            "Singapore: MAS Closing Levels "
+            "table found, but no valid "
+            "benchmark rows were extracted."
+        )
 
-        if (
-            values.get("yield") is not None
-            or values.get("price") is not None
-        ):
-
-            rows.append(
-                {
-                    "issue_code": issue_code,
-                    "yield": values.get("yield"),
-                    "price": values.get("price"),
-                    "date": latest_date,
-                    "source": "MAS",
-                }
-            )
+        return {
+            "source": "MAS",
+            "status": "fetched_incomplete",
+            "rows": [],
+        }
 
     log.append(
-        f"Singapore: MAS closing levels parsed for "
-        f"{len(rows)}/6 tracked benchmark issues "
-        f"({latest_date})."
+        "Singapore: MAS closing levels parsed "
+        f"for {len(rows)}/6 tracked benchmark "
+        f"issues ({latest_date})."
     )
 
     return {
         "source": "MAS",
-        "status": (
-            "success"
-            if rows
-            else "fetched_incomplete"
-        ),
+        "status": "success",
         "date": latest_date,
         "rows": rows,
     }
+
 
 def update_singapore_instruments(
     instruments: list[dict[str, Any]],
     mas: dict[str, Any],
 ) -> None:
 
-    rows = mas.get("rows", [])
+    rows = mas.get(
+        "rows",
+        []
+    )
 
-    # MAS issue-code <-> ISIN mapping for the instruments
-    # in our Phase 1 Singapore universe.
+    # ------------------------------------------------------------------
+    # Phase 1 Singapore instrument mapping.
     #
-    # These mappings are confirmed against the MAS SGS page.
+    # The first two instruments already have ISINs.
+    # The remaining benchmark records use the issue codes from MAS.
+    # ------------------------------------------------------------------
 
     isin_to_issue_code = {
         "SGXF51035222": "N523100W",
@@ -1207,23 +1662,29 @@ def update_singapore_instruments(
             continue
 
         issue_code = str(
-            instrument.get("issue_code")
+            instrument.get(
+                "issue_code"
+            )
             or ""
         ).strip().upper()
 
         isin = str(
-            instrument.get("isin")
+            instrument.get(
+                "isin"
+            )
             or ""
         ).strip().upper()
 
-        # If the JSON already contains issue_code, use it.
-        #
-        # Otherwise derive it from ISIN.
-        if not issue_code and isin:
+        if (
+            not issue_code
+            and isin
+        ):
 
-            issue_code = isin_to_issue_code.get(
-                isin,
-                "",
+            issue_code = (
+                isin_to_issue_code.get(
+                    isin,
+                    "",
+                )
             )
 
         if not issue_code:
@@ -1234,7 +1695,9 @@ def update_singapore_instruments(
                 row
                 for row in rows
                 if str(
-                    row.get("issue_code")
+                    row.get(
+                        "issue_code"
+                    )
                     or ""
                 ).strip().upper()
                 == issue_code
@@ -1247,14 +1710,14 @@ def update_singapore_instruments(
 
         changed = False
 
-        # -----------------------------------------------------------
-        # Yield
-        # -----------------------------------------------------------
-
-        if hit.get("yield") is not None:
+        if hit.get(
+            "yield"
+        ) is not None:
 
             instrument["previousYield"] = (
-                instrument.get("yield")
+                instrument.get(
+                    "yield"
+                )
             )
 
             instrument["yield"] = (
@@ -1267,14 +1730,14 @@ def update_singapore_instruments(
 
             changed = True
 
-        # -----------------------------------------------------------
-        # Price
-        # -----------------------------------------------------------
-
-        if hit.get("price") is not None:
+        if hit.get(
+            "price"
+        ) is not None:
 
             instrument["previousPrice"] = (
-                instrument.get("price")
+                instrument.get(
+                    "price"
+                )
             )
 
             instrument["price"] = (
@@ -1287,22 +1750,17 @@ def update_singapore_instruments(
 
             changed = True
 
-        # -----------------------------------------------------------
-        # Date
-        # -----------------------------------------------------------
-
         if changed:
 
             instrument["liveDate"] = (
-                hit.get("date")
+                hit.get(
+                    "date"
+                )
             )
 
             instrument["dataStatus"] = (
                 "live MAS SGS data"
             )
-
-            # Keep the issue code available in live.json
-            # even for records that originally only had ISIN.
 
             if not instrument.get(
                 "issue_code"
@@ -1314,14 +1772,14 @@ def update_singapore_instruments(
 
             updated_count += 1
 
-    # Store a summary for the dashboard/log.
     mas["matchedInstruments"] = (
         updated_count
     )
 
-# ---------------------------------------------------------------------------
-# India
-# ---------------------------------------------------------------------------
+
+# ============================================================================
+# INDIA
+# ============================================================================
 
 def update_india_instruments(
     instruments: list[dict[str, Any]],
@@ -1334,9 +1792,8 @@ def update_india_instruments(
         ) != "india":
             continue
 
-        # India instrument-level live values are deliberately
-        # not fabricated. Preserve the Phase 1 source-backed
-        # instrument information.
+        # Do not fabricate India live quotes.
+        # Preserve the Phase 1 RBI instrument universe.
 
         instrument.setdefault(
             "liveYield",
@@ -1359,41 +1816,9 @@ def update_india_instruments(
         )
 
 
-# ---------------------------------------------------------------------------
-# Final normalization
-# ---------------------------------------------------------------------------
-
-def initialize_live_fields(
-    instruments: list[dict[str, Any]],
-) -> None:
-
-    for instrument in instruments:
-
-        # Preserve the original Phase 1 values.
-
-        instrument.setdefault(
-            "liveYield",
-            None,
-        )
-
-        instrument.setdefault(
-            "livePrice",
-            None,
-        )
-
-        instrument.setdefault(
-            "liveDate",
-            None,
-        )
-
-        if not instrument.get(
-            "dataStatus"
-        ):
-
-            instrument["dataStatus"] = (
-                "source-backed seed"
-            )
-
+# ============================================================================
+# STATUS
+# ============================================================================
 
 def calculate_status(
     log: list[str],
@@ -1415,9 +1840,9 @@ def calculate_status(
     return "success"
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+# ============================================================================
+# MAIN
+# ============================================================================
 
 def main() -> None:
 
@@ -1427,12 +1852,14 @@ def main() -> None:
 
     log: list[str] = []
 
-    # ---------------------------------------------------------------
-    # 1. Load the original Phase 1 universe.
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # 1. Load Phase 1 instrument universe.
+    # ------------------------------------------------------------------
 
-    instruments = load_instrument_universe(
-        log
+    instruments = (
+        load_instrument_universe(
+            log
+        )
     )
 
     if not instruments:
@@ -1443,7 +1870,7 @@ def main() -> None:
         )
 
         payload = {
-            "schemaVersion": "3.1",
+            "schemaVersion": "3.2",
             "updatedAt": now_utc(),
             "status": "error",
             "sources": {},
@@ -1459,7 +1886,9 @@ def main() -> None:
         save_json(
             LAST_UPDATE,
             {
-                "updatedAt": payload["updatedAt"],
+                "updatedAt": payload[
+                    "updatedAt"
+                ],
                 "status": "error",
                 "log": log,
             },
@@ -1473,9 +1902,9 @@ def main() -> None:
         instruments
     )
 
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 2. USA Treasury
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     try:
 
@@ -1501,9 +1930,9 @@ def main() -> None:
             f"USA: ERROR {exc}"
         )
 
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 3. Hong Kong HKMA
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     try:
 
@@ -1524,9 +1953,9 @@ def main() -> None:
             f"Hong Kong: ERROR {exc}"
         )
 
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 4. Singapore MAS
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     try:
 
@@ -1552,9 +1981,9 @@ def main() -> None:
             f"Singapore: ERROR {exc}"
         )
 
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 5. India
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     try:
 
@@ -1563,8 +1992,9 @@ def main() -> None:
         )
 
         log.append(
-            "India: Phase 1 RBI instrument universe preserved; "
-            "no unverified live quote was inferred."
+            "India: Phase 1 RBI instrument "
+            "universe preserved; no unverified "
+            "live quote was inferred."
         )
 
     except Exception as exc:
@@ -1573,9 +2003,9 @@ def main() -> None:
             f"India: ERROR {exc}"
         )
 
-    # ---------------------------------------------------------------
-    # 6. Final status
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # 6. Calculate final status.
+    # ------------------------------------------------------------------
 
     status = calculate_status(
         log,
@@ -1584,9 +2014,15 @@ def main() -> None:
 
     updated_at = now_utc()
 
+    # ------------------------------------------------------------------
+    # 7. Final payload.
+    # ------------------------------------------------------------------
+
     payload = {
-        "schemaVersion": "3.1",
+        "schemaVersion": "3.2",
+
         "updatedAt": updated_at,
+
         "status": status,
 
         "sources": {
@@ -1598,7 +2034,7 @@ def main() -> None:
 
             "singapore": (
                 "https://eservices.mas.gov.sg/"
-                "statistics/fdanet/"
+                "Statistics/fdanet/"
                 "SgsBenchmarkIssuePrices.aspx"
             ),
 
@@ -1629,15 +2065,18 @@ def main() -> None:
         "log": log,
     }
 
-    # ---------------------------------------------------------------
-    # IMPORTANT:
-    # Only write live.json after instruments have been confirmed.
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # 8. Write live.json.
+    # ------------------------------------------------------------------
 
     save_json(
         OUT,
         payload,
     )
+
+    # ------------------------------------------------------------------
+    # 9. Write last-update.json.
+    # ------------------------------------------------------------------
 
     save_json(
         LAST_UPDATE,
@@ -1651,16 +2090,16 @@ def main() -> None:
         },
     )
 
-    # ---------------------------------------------------------------
-    # Console summary
-    # ---------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # 10. Console summary.
+    # ------------------------------------------------------------------
 
     print(
         "=========================================="
     )
 
     print(
-        " Bond Monitor Phase 3 Update v3.1"
+        " Bond Monitor Phase 3 Update v3.2"
     )
 
     print(
@@ -1676,7 +2115,7 @@ def main() -> None:
     )
 
     print(
-        f"USA curve      : "
+        "USA curve      : "
         f"{us.get('status', 'unknown').upper()}"
     )
 
