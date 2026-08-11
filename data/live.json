@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "3.0",
+  "updatedAt": null,
+  "status": "awaiting first automated run",
+  "sources": {
+    "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
+    "singapore": "https://eservices.mas.gov.sg/statistics/fdanet/SgsBenchmarkIssuePrices.aspx",
+    "hongkong": "https://apidocs.hkma.gov.hk/documentation/market-data-and-statistics/daily-monetary-statistics/efbn-indicative-price",
+    "india": "https://data.rbi.org.in/"
+  },
+  "usaCurve": {
+    "curve": {}
+  },
+  "hongkongIndicative": [],
+  "singaporeBenchmark": {
+    "rows": []
+  },
+  "instruments": [],
+  "log": []
+}
