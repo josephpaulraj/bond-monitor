@@ -436,6 +436,57 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
         "curve": curve,
     }
 
+def update_us_instruments(
+    instruments: list[dict[str, Any]],
+    us: dict[str, Any],
+) -> None:
+
+    curve = us.get("curve", {})
+    date = us.get("date")
+
+    maturity_map = {
+        "5-Year Treasury benchmark": "5 Yr",
+        "10-Year Treasury benchmark": "10 Yr",
+        "30-Year Treasury benchmark": "30 Yr",
+    }
+
+    for instrument in instruments:
+
+        if norm_market(
+            instrument.get("market")
+        ) not in {
+            "united states",
+            "usa",
+            "us",
+        }:
+            continue
+
+        bond = str(
+            instrument.get("bond") or ""
+        )
+
+        tenor = maturity_map.get(bond)
+
+        if not tenor:
+            continue
+
+        value = curve.get(tenor)
+
+        if value is None:
+            continue
+
+        # Preserve the previous value before replacing it.
+        instrument["previousYield"] = instrument.get(
+            "yield"
+        )
+
+        instrument["yield"] = value
+        instrument["liveYield"] = value
+        instrument["liveDate"] = date
+
+        instrument["dataStatus"] = (
+            "live U.S. Treasury benchmark yield"
+        )
 # ---------------------------------------------------------------------------
 # Hong Kong HKMA
 # ---------------------------------------------------------------------------
