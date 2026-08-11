@@ -1,4 +1,8 @@
 {
-  "updatedAt": null,
-  "log": []
+  "updatedAt": "2026-08-11T08:22:45Z",
+  "log": [
+    "USA: ERROR Treasury feed returned no date",
+    "Hong Kong: HKMA returned 7 latest-business-day rows.",
+    "Singapore: MAS page parsed; 0 yield rows found."
+  ]
 }
