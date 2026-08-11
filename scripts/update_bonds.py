@@ -77,7 +77,7 @@ HTTP_RETRY_DELAY = 3
 
 TREASURY_URL = (
     "https://home.treasury.gov/resource-center/data-chart-center/"
-    "interest-rates/pages/xml?data=daily_treasury_yield_curve"
+    "interest-rates/pages/xml"
 )
 
 HKMA_URL = (
@@ -276,18 +276,32 @@ def clean_number(value: Any) -> float | None:
 
 def update_us_curve(log: list[str]) -> dict[str, Any]:
 
-    raw = fetch(TREASURY_URL).decode(
+    # Treasury requires the year parameter for the XML feed.
+    year = datetime.now(timezone.utc).year
+
+    url = (
+        TREASURY_URL
+        + f"?data=daily_treasury_yield_curve"
+        + f"&field_tdr_date_value={year}"
+    )
+
+    raw = fetch(
+        url,
+        timeout=60,
+        retries=3,
+    ).decode(
         "utf-8",
         errors="replace",
     )
 
-    # Treasury XML uses namespace-prefixed fields.
+    # Treasury XML normally contains:
+    # <d:NEW_DATE ...>2026-08-10T00:00:00</d:NEW_DATE>
     date_patterns = [
-        r"<d:NEW_DATE>(.*?)</d:NEW_DATE>",
-        r"<NEW_DATE>(.*?)</NEW_DATE>",
+        r"<d:NEW_DATE[^>]*>(.*?)</d:NEW_DATE>",
+        r"<NEW_DATE[^>]*>(.*?)</NEW_DATE>",
     ]
 
-    dates: list[str] = []
+    dates = []
 
     for pattern in date_patterns:
 
@@ -301,14 +315,13 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
             break
 
     if not dates:
-
         raise RuntimeError(
             "Treasury feed returned no date"
         )
 
     latest = dates[-1]
 
-    # Find the XML entry associated with latest date.
+    # Locate the latest Treasury entry.
     pos = raw.rfind(latest)
 
     if pos < 0:
@@ -338,30 +351,49 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
 
         block = raw
 
+    # IMPORTANT:
+    # Treasury field names are not simply "1_month", etc.
+    # They use names such as:
+    #
+    # BC_1MONTH
+    # BC_1_5MONTH
+    # BC_2MONTH
+    # BC_3MONTH
+    # BC_4MONTH
+    # BC_6MONTH
+    # BC_1YEAR
+    # BC_2YEAR
+    # BC_3YEAR
+    # BC_5YEAR
+    # BC_7YEAR
+    # BC_10YEAR
+    # BC_20YEAR
+    # BC_30YEAR
+
     tenors = {
-        "1 Mo": "1_month",
-        "1.5 Mo": "1_5_month",
-        "2 Mo": "2_month",
-        "3 Mo": "3_month",
-        "4 Mo": "4_month",
-        "6 Mo": "6_month",
-        "1 Yr": "1_year",
-        "2 Yr": "2_year",
-        "3 Yr": "3_year",
-        "5 Yr": "5_year",
-        "7 Yr": "7_year",
-        "10 Yr": "10_year",
-        "20 Yr": "20_year",
-        "30 Yr": "30_year",
+        "1 Mo": "BC_1MONTH",
+        "1.5 Mo": "BC_1_5MONTH",
+        "2 Mo": "BC_2MONTH",
+        "3 Mo": "BC_3MONTH",
+        "4 Mo": "BC_4MONTH",
+        "6 Mo": "BC_6MONTH",
+        "1 Yr": "BC_1YEAR",
+        "2 Yr": "BC_2YEAR",
+        "3 Yr": "BC_3YEAR",
+        "5 Yr": "BC_5YEAR",
+        "7 Yr": "BC_7YEAR",
+        "10 Yr": "BC_10YEAR",
+        "20 Yr": "BC_20YEAR",
+        "30 Yr": "BC_30YEAR",
     }
 
-    curve: dict[str, float] = {}
+    curve = {}
 
-    for label, key in tenors.items():
+    for label, field in tenors.items():
 
         patterns = [
-            rf"<d:{re.escape(key)}>(.*?)</d:{re.escape(key)}>",
-            rf"<{re.escape(key)}>(.*?)</{re.escape(key)}>",
+            rf"<d:{field}[^>]*>(.*?)</d:{field}>",
+            rf"<{field}[^>]*>(.*?)</{field}>",
         ]
 
         value = None
@@ -403,60 +435,6 @@ def update_us_curve(log: list[str]) -> dict[str, Any]:
         "date": latest,
         "curve": curve,
     }
-
-
-def update_us_instruments(
-    instruments: list[dict[str, Any]],
-    us: dict[str, Any],
-) -> None:
-
-    curve = us.get("curve", {})
-    date = us.get("date")
-
-    maturity_map = {
-        "5-Year Treasury benchmark": "5 Yr",
-        "10-Year Treasury benchmark": "10 Yr",
-        "30-Year Treasury benchmark": "30 Yr",
-    }
-
-    for instrument in instruments:
-
-        if norm_market(
-            instrument.get("market")
-        ) not in {
-            "united states",
-            "usa",
-            "us",
-        }:
-            continue
-
-        bond = str(
-            instrument.get("bond") or ""
-        )
-
-        tenor = maturity_map.get(bond)
-
-        if not tenor:
-            continue
-
-        value = curve.get(tenor)
-
-        if value is None:
-            continue
-
-        # Preserve the original source-backed value separately.
-        instrument["previousYield"] = instrument.get(
-            "yield"
-        )
-
-        instrument["yield"] = value
-        instrument["liveYield"] = value
-        instrument["liveDate"] = date
-
-        instrument["dataStatus"] = (
-            "live U.S. Treasury benchmark yield"
-        )
-
 
 # ---------------------------------------------------------------------------
 # Hong Kong HKMA
