@@ -87,8 +87,8 @@ HKMA_URL = (
 )
 
 MAS_URL = (
-    "https://eservices.mas.gov.sg/statistics/fdanet/"
-    "SgsBenchmarkIssuePrices.aspx"
+    "https://eservices.mas.gov.sg/Statistics/fdanet/"
+    "BondPricesAndYields.aspx"
 )
 
 
