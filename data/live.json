@@ -1,11 +1,11 @@
 {
-  "schemaVersion": "3.3",
-  "updatedAt": "2026-08-13T05:50:52Z",
-  "status": "success",
+  "schemaVersion": "3.4",
+  "updatedAt": "2026-08-13T09:47:50Z",
+  "status": "partial",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
-    "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx",
-    "hongkong": "https://apidocs.hkma.gov.hk/documentation/market-data-and-statistics/daily-monetary-statistics/efbn-indicative-price",
+    "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/BondPricesAndYields.aspx",
+    "hongkong": "https://api.hkma.gov.hk/public/market-data-and-statistics/daily-monetary-statistics/efbn-indicative-price?segment=IndicativePrice&offset=0",
     "india": "https://data.rbi.org.in/"
   },
   "usaCurve": {
@@ -29,69 +29,11 @@
       "30 Yr": 5.24
     }
   },
-  "hongkongIndicative": [
-    {
-      "date": "2026-08-12",
-      "term": "1W",
-      "issue_no": "Q2620",
-      "yield": 2.24,
-      "price": null,
-      "source": "HKMA"
-    },
-    {
-      "date": "2026-08-12",
-      "term": "1M",
-      "issue_no": "Q2623",
-      "yield": 2.42,
-      "price": null,
-      "source": "HKMA"
-    },
-    {
-      "date": "2026-08-12",
-      "term": "3M",
-      "issue_no": "Q2632",
-      "yield": 2.7,
-      "price": null,
-      "source": "HKMA"
-    },
-    {
-      "date": "2026-08-12",
-      "term": "6M",
-      "issue_no": "H2661",
-      "yield": 2.85,
-      "price": null,
-      "source": "HKMA"
-    },
-    {
-      "date": "2026-08-12",
-      "term": "9M",
-      "issue_no": "Y2690",
-      "yield": 2.87,
-      "price": null,
-      "source": "HKMA"
-    },
-    {
-      "date": "2026-08-12",
-      "term": "12M",
-      "issue_no": "Y2693",
-      "yield": 2.91,
-      "price": null,
-      "source": "HKMA"
-    },
-    {
-      "date": "2026-08-12",
-      "term": "2 YR",
-      "issue_no": "02Y2805",
-      "yield": 3.019,
-      "price": 99.17,
-      "source": "HKMA"
-    }
-  ],
+  "hongkongIndicative": [],
   "singaporeBenchmark": {
     "source": "MAS",
-    "status": "fetched_no_table",
+    "status": "fetched_no_closing_section",
     "rows": [],
-    "issueCodesFound": [],
     "matchedInstruments": 0
   },
   "instrumentCount": 22,
@@ -543,9 +485,16 @@
     "Hong Kong: loaded 5 instruments from hongkong.json",
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
+    "USA Treasury: HTTP attempt 1/2",
     "USA: Treasury curve updated for 2026-08-12T00:00:00; 14 tenors.",
-    "Hong Kong: HKMA returned 7 indicative-price rows.",
-    "Singapore: MAS page fetched, but no tracked SGS issue codes were detected.",
+    "Hong Kong HKMA: HTTP attempt 1/2",
+    "Hong Kong HKMA: HTTP 502",
+    "Hong Kong HKMA: HTTP attempt 2/2",
+    "Hong Kong HKMA: connection/timeout error The read operation timed out",
+    "Hong Kong: ERROR The read operation timed out",
+    "Singapore MAS: HTTP attempt 1/2",
+    "Singapore: MAS page fetched; found 6/6 tracked issue codes.",
+    "Singapore: MAS Closing Levels section not found.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
