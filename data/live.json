@@ -1,6 +1,6 @@
 {
   "schemaVersion": "3.4",
-  "updatedAt": "2026-08-13T09:47:50Z",
+  "updatedAt": "2026-08-13T10:17:08Z",
   "status": "partial",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
@@ -488,7 +488,7 @@
     "USA Treasury: HTTP attempt 1/2",
     "USA: Treasury curve updated for 2026-08-12T00:00:00; 14 tenors.",
     "Hong Kong HKMA: HTTP attempt 1/2",
-    "Hong Kong HKMA: HTTP 502",
+    "Hong Kong HKMA: connection/timeout error The read operation timed out",
     "Hong Kong HKMA: HTTP attempt 2/2",
     "Hong Kong HKMA: connection/timeout error The read operation timed out",
     "Hong Kong: ERROR The read operation timed out",
