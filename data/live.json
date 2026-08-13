@@ -1,11 +1,11 @@
 {
   "schemaVersion": "3.4",
-  "updatedAt": "2026-08-13T10:17:08Z",
-  "status": "partial",
+  "updatedAt": "2026-08-13T16:11:34Z",
+  "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
     "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/BondPricesAndYields.aspx",
-    "hongkong": "https://api.hkma.gov.hk/public/market-data-and-statistics/daily-monetary-statistics/efbn-indicative-price?segment=IndicativePrice&offset=0",
+    "hongkong": "https://apidocs.hkma.gov.hk/documentation/market-data-and-statistics/daily-monetary-statistics/efbn-indicative-price",
     "india": "https://data.rbi.org.in/"
   },
   "usaCurve": {
@@ -29,11 +29,76 @@
       "30 Yr": 5.24
     }
   },
-  "hongkongIndicative": [],
+  "hongkongIndicative": [
+    {
+      "date": "2026-08-13",
+      "term": "1W",
+      "issue_no": "Q2620",
+      "yield": 2.15,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-13",
+      "term": "1M",
+      "issue_no": "Q2623",
+      "yield": 2.4,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-13",
+      "term": "3M",
+      "issue_no": "Q2632",
+      "yield": 2.7,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-13",
+      "term": "6M",
+      "issue_no": "H2661",
+      "yield": 2.84,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-13",
+      "term": "9M",
+      "issue_no": "Y2690",
+      "yield": 2.88,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-13",
+      "term": "12M",
+      "issue_no": "Y2693",
+      "yield": 2.91,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-13",
+      "term": "2 YR",
+      "issue_no": "02Y2805",
+      "yield": 3.008,
+      "price": 99.19,
+      "source": "HKMA"
+    }
+  ],
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "fetched_no_closing_section",
     "rows": [],
+    "detectedIssueCodes": [
+      "N523100W",
+      "NA16100H",
+      "NC22300W",
+      "NX21100N",
+      "NY25200N",
+      "NZ16100X"
+    ],
     "matchedInstruments": 0
   },
   "instrumentCount": 22,
@@ -96,7 +161,8 @@
       "liveYield": 4.68,
       "livePrice": null,
       "liveDate": "2026-08-12T00:00:00",
-      "dataStatus": "live U.S. Treasury benchmark yield"
+      "dataStatus": "live U.S. Treasury benchmark yield",
+      "previousYield": null
     },
     {
       "market": "United States",
@@ -116,7 +182,8 @@
       "liveYield": 4.38,
       "livePrice": null,
       "liveDate": "2026-08-12T00:00:00",
-      "dataStatus": "live U.S. Treasury benchmark yield"
+      "dataStatus": "live U.S. Treasury benchmark yield",
+      "previousYield": null
     },
     {
       "market": "United States",
@@ -136,7 +203,8 @@
       "liveYield": 5.24,
       "livePrice": null,
       "liveDate": "2026-08-12T00:00:00",
-      "dataStatus": "live U.S. Treasury benchmark yield"
+      "dataStatus": "live U.S. Treasury benchmark yield",
+      "previousYield": null
     },
     {
       "market": "Singapore",
@@ -485,14 +553,8 @@
     "Hong Kong: loaded 5 instruments from hongkong.json",
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
-    "USA Treasury: HTTP attempt 1/2",
     "USA: Treasury curve updated for 2026-08-12T00:00:00; 14 tenors.",
-    "Hong Kong HKMA: HTTP attempt 1/2",
-    "Hong Kong HKMA: connection/timeout error The read operation timed out",
-    "Hong Kong HKMA: HTTP attempt 2/2",
-    "Hong Kong HKMA: connection/timeout error The read operation timed out",
-    "Hong Kong: ERROR The read operation timed out",
-    "Singapore MAS: HTTP attempt 1/2",
+    "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore: MAS page fetched; found 6/6 tracked issue codes.",
     "Singapore: MAS Closing Levels section not found.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
