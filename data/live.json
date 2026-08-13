@@ -1,6 +1,6 @@
 {
   "schemaVersion": "3.5",
-  "updatedAt": "2026-08-13T17:23:03Z",
+  "updatedAt": "2026-08-13T20:03:22Z",
   "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
@@ -31,23 +31,23 @@
   },
   "hongkongIndicative": [
     {
-      "date": "2026-08-13",
+      "date": "2026-08-12",
       "term": "1W",
       "issue_no": "Q2620",
-      "yield": 2.15,
+      "yield": 2.24,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-08-13",
+      "date": "2026-08-12",
       "term": "1M",
       "issue_no": "Q2623",
-      "yield": 2.4,
+      "yield": 2.42,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-08-13",
+      "date": "2026-08-12",
       "term": "3M",
       "issue_no": "Q2632",
       "yield": 2.7,
@@ -55,23 +55,23 @@
       "source": "HKMA"
     },
     {
-      "date": "2026-08-13",
+      "date": "2026-08-12",
       "term": "6M",
       "issue_no": "H2661",
-      "yield": 2.84,
+      "yield": 2.85,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-08-13",
+      "date": "2026-08-12",
       "term": "9M",
       "issue_no": "Y2690",
-      "yield": 2.88,
+      "yield": 2.87,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-08-13",
+      "date": "2026-08-12",
       "term": "12M",
       "issue_no": "Y2693",
       "yield": 2.91,
@@ -79,11 +79,11 @@
       "source": "HKMA"
     },
     {
-      "date": "2026-08-13",
+      "date": "2026-08-12",
       "term": "2 YR",
       "issue_no": "02Y2805",
-      "yield": 3.008,
-      "price": 99.19,
+      "yield": 3.019,
+      "price": 99.17,
       "source": "HKMA"
     }
   ],
