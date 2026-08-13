@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-08-12T20:11:11Z",
-  "status": "success",
+  "updatedAt": "2026-08-13T03:01:27Z",
+  "status": "partial",
   "instrumentCount": 22,
   "log": [
     "United States: loaded 5 instruments from usa.json",
@@ -9,8 +9,8 @@
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
     "USA: Treasury curve updated for 2026-08-12T00:00:00; 14 tenors.",
-    "Hong Kong: HKMA returned 7 indicative-price rows.",
-    "Singapore: MAS page fetched; found 5/6 tracked issue codes, but the Closing Levels table could not be parsed.",
+    "Hong Kong: ERROR HTTP Error 502: Bad Gateway",
+    "Singapore: MAS page fetched, but no tracked SGS issue codes were detected.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
