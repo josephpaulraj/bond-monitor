@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-13T16:11:34Z",
+  "updatedAt": "2026-08-13T17:23:03Z",
   "status": "success",
   "instrumentCount": 22,
   "log": [
@@ -8,10 +8,13 @@
     "Hong Kong: loaded 5 instruments from hongkong.json",
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
+    "USA Treasury: HTTP attempt 1/2",
     "USA: Treasury curve updated for 2026-08-12T00:00:00; 14 tenors.",
+    "Hong Kong HKMA: HTTP attempt 1/2",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
+    "Singapore MAS: HTTP attempt 1/2",
     "Singapore: MAS page fetched; found 6/6 tracked issue codes.",
-    "Singapore: MAS Closing Levels section not found.",
+    "Singapore: MAS live benchmark data parsed for 6/6 tracked issues.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
