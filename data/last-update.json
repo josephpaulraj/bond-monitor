@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-08-14T05:46:33Z",
-  "status": "success",
+  "updatedAt": "2026-08-14T09:42:09Z",
+  "status": "partial",
   "instrumentCount": 22,
   "log": [
     "United States: loaded 5 instruments from usa.json",
@@ -13,7 +13,8 @@
     "Hong Kong HKMA: HTTP attempt 1/2",
     "Hong Kong HKMA: connection/HTTP error The read operation timed out",
     "Hong Kong HKMA: HTTP attempt 2/2",
-    "Hong Kong: HKMA returned 7 indicative-price rows.",
+    "Hong Kong HKMA: connection/HTTP error The read operation timed out",
+    "Hong Kong: ERROR The read operation timed out",
     "Singapore MAS: HTTP attempt 1/2",
     "Singapore: MAS page fetched; found 6/6 tracked issue codes.",
     "Singapore: MAS live benchmark data parsed for 6/6 tracked issues.",
