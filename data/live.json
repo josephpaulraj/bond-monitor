@@ -1,6 +1,6 @@
 {
-  "schemaVersion": "3.6",
-  "updatedAt": "2026-08-14T13:52:30Z",
+  "schemaVersion": "3.7",
+  "updatedAt": "2026-08-14T15:07:50Z",
   "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
@@ -90,7 +90,9 @@
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "fetched_no_table",
-    "rows": []
+    "rows": [],
+    "matchedIssueCodes": 5,
+    "matchedInstruments": 0
   },
   "instrumentCount": 22,
   "instruments": [
@@ -152,8 +154,7 @@
       "liveYield": 4.63,
       "livePrice": null,
       "liveDate": "2026-08-13T00:00:00",
-      "dataStatus": "live U.S. Treasury benchmark yield",
-      "previousYield": null
+      "dataStatus": "live U.S. Treasury benchmark yield"
     },
     {
       "market": "United States",
@@ -173,8 +174,7 @@
       "liveYield": 4.32,
       "livePrice": null,
       "liveDate": "2026-08-13T00:00:00",
-      "dataStatus": "live U.S. Treasury benchmark yield",
-      "previousYield": null
+      "dataStatus": "live U.S. Treasury benchmark yield"
     },
     {
       "market": "United States",
@@ -194,8 +194,7 @@
       "liveYield": 5.21,
       "livePrice": null,
       "liveDate": "2026-08-13T00:00:00",
-      "dataStatus": "live U.S. Treasury benchmark yield",
-      "previousYield": null
+      "dataStatus": "live U.S. Treasury benchmark yield"
     },
     {
       "market": "Singapore",
@@ -544,9 +543,13 @@
     "Hong Kong: loaded 5 instruments from hongkong.json",
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
+    "USA Treasury: HTTP attempt 1/2",
     "USA: Treasury curve updated for 2026-08-13T00:00:00; 14 tenors.",
+    "Hong Kong HKMA: HTTP attempt 1/2",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
-    "Singapore: MAS page fetched; found 0/6 tracked issue codes.",
+    "Singapore MAS: HTTP attempt 1/2",
+    "Singapore: MAS page fetched; found 5/6 tracked issue codes.",
+    "Singapore: MAS issue codes were found, but no safe benchmark data row could be parsed.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
