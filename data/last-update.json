@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-08-14T16:38:55Z",
-  "status": "success",
+  "updatedAt": "2026-08-14T20:01:38Z",
+  "status": "partial",
   "instrumentCount": 22,
   "log": [
     "United States: loaded 5 instruments from usa.json",
@@ -9,9 +9,12 @@
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
     "USA Treasury: HTTP attempt 1/2",
-    "USA: Treasury curve updated for 2026-08-13T00:00:00; 14 tenors.",
+    "USA: Treasury curve updated for 2026-08-14T00:00:00; 14 tenors.",
     "Hong Kong HKMA: HTTP attempt 1/2",
-    "Hong Kong: HKMA returned 7 indicative-price rows.",
+    "Hong Kong HKMA: connection/timeout error HTTP Error 502: Bad Gateway",
+    "Hong Kong HKMA: HTTP attempt 2/2",
+    "Hong Kong HKMA: connection/timeout error HTTP Error 502: Bad Gateway",
+    "Hong Kong: ERROR HTTP Error 502: Bad Gateway",
     "Singapore MAS: HTTP attempt 1/2",
     "Singapore: MAS page fetched; found 0/6 tracked issue codes.",
     "Singapore: MAS benchmark issue codes could not be detected.",
