@@ -1,10 +1,10 @@
 {
-  "schemaVersion": "3.7",
-  "updatedAt": "2026-08-14T15:25:40Z",
+  "schemaVersion": "3.8",
+  "updatedAt": "2026-08-14T16:38:55Z",
   "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
-    "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx",
+    "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/BenchmarkPricesAndYields.aspx",
     "hongkong": "https://apidocs.hkma.gov.hk/documentation/market-data-and-statistics/daily-monetary-statistics/efbn-indicative-price",
     "india": "https://data.rbi.org.in/"
   },
@@ -91,7 +91,7 @@
     "source": "MAS",
     "status": "fetched_no_table",
     "rows": [],
-    "matchedIssueCodes": 5,
+    "matchedIssueCodes": 0,
     "matchedInstruments": 0
   },
   "instrumentCount": 22,
@@ -548,8 +548,8 @@
     "Hong Kong HKMA: HTTP attempt 1/2",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: HTTP attempt 1/2",
-    "Singapore: MAS page fetched; found 5/6 tracked issue codes.",
-    "Singapore: MAS issue codes were found, but no safe benchmark data row could be parsed.",
+    "Singapore: MAS page fetched; found 0/6 tracked issue codes.",
+    "Singapore: MAS benchmark issue codes could not be detected.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }

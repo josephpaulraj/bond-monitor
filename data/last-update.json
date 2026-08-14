@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-14T15:25:40Z",
+  "updatedAt": "2026-08-14T16:38:55Z",
   "status": "success",
   "instrumentCount": 22,
   "log": [
@@ -13,8 +13,8 @@
     "Hong Kong HKMA: HTTP attempt 1/2",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: HTTP attempt 1/2",
-    "Singapore: MAS page fetched; found 5/6 tracked issue codes.",
-    "Singapore: MAS issue codes were found, but no safe benchmark data row could be parsed.",
+    "Singapore: MAS page fetched; found 0/6 tracked issue codes.",
+    "Singapore: MAS benchmark issue codes could not be detected.",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
