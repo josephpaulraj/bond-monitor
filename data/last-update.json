@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-13T20:03:22Z",
+  "updatedAt": "2026-08-14T05:46:33Z",
   "status": "success",
   "instrumentCount": 22,
   "log": [
@@ -9,8 +9,10 @@
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
     "USA Treasury: HTTP attempt 1/2",
-    "USA: Treasury curve updated for 2026-08-12T00:00:00; 14 tenors.",
+    "USA: Treasury curve updated for 2026-08-13T00:00:00; 14 tenors.",
     "Hong Kong HKMA: HTTP attempt 1/2",
+    "Hong Kong HKMA: connection/HTTP error The read operation timed out",
+    "Hong Kong HKMA: HTTP attempt 2/2",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: HTTP attempt 1/2",
     "Singapore: MAS page fetched; found 6/6 tracked issue codes.",
