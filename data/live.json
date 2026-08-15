@@ -1,7 +1,7 @@
 {
   "schemaVersion": "3.8",
-  "updatedAt": "2026-08-15T03:04:28Z",
-  "status": "partial",
+  "updatedAt": "2026-08-15T07:19:29Z",
+  "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
     "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/BenchmarkPricesAndYields.aspx",
@@ -29,7 +29,64 @@
       "30 Yr": 5.25
     }
   },
-  "hongkongIndicative": [],
+  "hongkongIndicative": [
+    {
+      "date": "2026-08-14",
+      "term": "1W",
+      "issue_no": "Q2620",
+      "yield": 2.2,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-14",
+      "term": "1M",
+      "issue_no": "Q2623",
+      "yield": 2.42,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-14",
+      "term": "3M",
+      "issue_no": "Q2632",
+      "yield": 2.69,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-14",
+      "term": "6M",
+      "issue_no": "H2661",
+      "yield": 2.81,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-14",
+      "term": "9M",
+      "issue_no": "Y2690",
+      "yield": 2.86,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-14",
+      "term": "12M",
+      "issue_no": "Y2693",
+      "yield": 2.9,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-08-14",
+      "term": "2 YR",
+      "issue_no": "02Y2805",
+      "yield": 2.979,
+      "price": 99.24,
+      "source": "HKMA"
+    }
+  ],
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "fetched_no_table",
@@ -489,10 +546,7 @@
     "USA Treasury: HTTP attempt 1/2",
     "USA: Treasury curve updated for 2026-08-14T00:00:00; 14 tenors.",
     "Hong Kong HKMA: HTTP attempt 1/2",
-    "Hong Kong HKMA: connection/timeout error HTTP Error 502: Bad Gateway",
-    "Hong Kong HKMA: HTTP attempt 2/2",
-    "Hong Kong HKMA: connection/timeout error HTTP Error 502: Bad Gateway",
-    "Hong Kong: ERROR HTTP Error 502: Bad Gateway",
+    "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: HTTP attempt 1/2",
     "Singapore: MAS page fetched; found 0/6 tracked issue codes.",
     "Singapore: MAS benchmark issue codes could not be detected.",
