@@ -1,42 +1,32 @@
 #!/usr/bin/env python3
 """
-Bond Monitor Phase 3 updater v3.8
+Bond Monitor Phase 3 updater v3.9
 
 Purpose
 -------
-Load the Phase 1 instrument universe and update live values only when
-they can be obtained safely from official sources.
+Load the original Bond Monitor instrument universe from:
 
-Markets
--------
-USA       : U.S. Treasury daily Treasury par yield curve
-Hong Kong : HKMA EFBN indicative prices
-Singapore : MAS SGS benchmark prices/yields
-India     : Phase 1 RBI instrument universe; no fabricated quotes
+    data/usa.json
+    data/singapore.json
+    data/hongkong.json
+    data/india.json
 
-v3.8 changes
-------------
-1. Uses the current official MAS SGS Benchmark Prices and Yields page:
-   https://eservices.mas.gov.sg/Statistics/fdanet/BenchmarkPricesAndYields.aspx
+Then update live values only when explicitly available from
+official sources.
 
-2. Removes dependency on the old "Closing Levels" page/section.
-
-3. Parses the MAS benchmark table using:
-      Issue Code
-      Coupon Rate
-      Maturity Date
-      Date
-      Yield / Price
-
-4. Supports the six tracked SGS benchmark instruments.
-
-5. Never fabricates a price or yield.
-
-6. Never replaces an existing value with null because a source failed.
-
-7. Preserves all 22 Phase 1 instruments.
-
-8. Keeps network retries short.
+Important design principles
+---------------------------
+1. Never fabricate a price or yield.
+2. Never delete an existing value because a source temporarily fails.
+3. Never replace a valid existing value with null because parsing failed.
+4. Preserve all 22 Phase 1 instruments.
+5. Use short HTTP timeouts so GitHub Actions cannot hang for many minutes.
+6. Singapore MAS parsing is based on the actual SGS benchmark table.
+7. Singapore matching is based primarily on issue_code already present
+   in singapore.json, with known instrument metadata used only as fallback.
+8. Write:
+       data/live.json
+       data/last-update.json
 """
 
 from __future__ import annotations
@@ -50,13 +40,6 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
-
-
-# ============================================================================
-# VERSION
-# ============================================================================
-
-VERSION = "3.8"
 
 
 # ============================================================================
@@ -75,12 +58,13 @@ LAST_UPDATE = DATA / "last-update.json"
 # ============================================================================
 
 UA = (
-    "bond-monitor/3.8 "
+    "bond-monitor/3.9 "
     "(GitHub Actions; official public market-data updater)"
 )
 
 CTX = ssl.create_default_context()
 
+# Keep these deliberately short.
 HTTP_TIMEOUT = 30
 HTTP_RETRIES = 2
 HTTP_RETRY_DELAY = 2
@@ -97,79 +81,51 @@ TREASURY_URL = (
 )
 
 HKMA_URL = (
-    "https://api.hkma.gov.hk/"
-    "public/market-data-and-statistics/"
+    "https://api.hkma.gov.hk/public/"
+    "market-data-and-statistics/"
     "daily-monetary-statistics/"
     "efbn-indicative-price"
     "?segment=IndicativePrice&offset=0"
 )
 
-# IMPORTANT:
-# This is the current MAS SGS Benchmark Prices and Yields page.
+# This is the actual MAS SGS Daily Prices / Benchmarks page.
 MAS_URL = (
     "https://eservices.mas.gov.sg/"
     "Statistics/fdanet/"
-    "BenchmarkPricesAndYields.aspx"
+    "SgsBenchmarkIssuePrices.aspx"
 )
 
 
 # ============================================================================
-# PHASE 1 COUNTRY FILES
+# TRACKED SINGAPORE SGS ISSUE CODES
 # ============================================================================
 
-COUNTRY_FILES = {
-    "United States": DATA / "usa.json",
-    "Singapore": DATA / "singapore.json",
-    "Hong Kong": DATA / "hongkong.json",
-    "India": DATA / "india.json",
-}
+# These are the benchmark issues used by our Phase 1 Singapore universe.
 
-
-# ============================================================================
-# SINGAPORE TRACKED SGS ISSUE CODES
-# ============================================================================
-
-SGS_ISSUE_CODES = {
+MAS_TRACKED_ISSUES = {
     "N523100W": {
-        "bond": "2.875% SGS 2028",
-        "isin": "SGXF51035222",
         "tenor": "2Y",
-        "has_price": True,
+        "instrument_name": "2.875% SGS 2028",
     },
-
     "NX21100N": {
-        "bond": "1.625% SGS 2031",
-        "isin": "SGXF76205099",
         "tenor": "5Y",
-        "has_price": True,
+        "instrument_name": "1.625% SGS 2031",
     },
-
     "NZ16100X": {
-        "bond": "2.250% SGS 2036",
-        "isin": "SG31A9000002",
         "tenor": "10Y",
-        "has_price": True,
+        "instrument_name": "2.250% SGS 2036",
     },
-
     "NY25200N": {
-        "bond": "2.250% SGS 2040",
-        "isin": "SGXF29838152",
         "tenor": "15Y",
-        "has_price": True,
+        "instrument_name": "2.250% SGS 2040",
     },
-
     "NA16100H": {
-        "bond": "2.750% SGS 2046",
-        "isin": "SG31A7000004",
         "tenor": "30Y",
-        "has_price": True,
+        "instrument_name": "2.750% SGS 2046",
     },
-
     "NC22300W": {
-        "bond": "3.000% SGS 2072",
-        "isin": "SGXF47639806",
         "tenor": "50Y",
-        "has_price": True,
+        "instrument_name": "3.000% SGS 2072",
     },
 }
 
@@ -187,46 +143,62 @@ def now_utc() -> str:
     )
 
 
-def clean_number(value: Any) -> float | None:
+def fetch(
+    url: str,
+    label: str,
+    timeout: int = HTTP_TIMEOUT,
+    retries: int = HTTP_RETRIES,
+) -> bytes:
 
-    if value is None:
-        return None
+    last_error: Exception | None = None
 
-    text = str(value).strip()
+    for attempt in range(1, retries + 1):
 
-    if not text:
-        return None
+        print(
+            f"{label}: HTTP attempt "
+            f"{attempt}/{retries}"
+        )
 
-    text = (
-        text
-        .replace(",", "")
-        .replace("%", "")
-        .replace("\xa0", " ")
-        .strip()
+        try:
+
+            request = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": UA,
+                    "Accept": (
+                        "text/html,application/xhtml+xml,"
+                        "application/xml,application/json,*/*"
+                    ),
+                    "Cache-Control": "no-cache",
+                    "Pragma": "no-cache",
+                },
+            )
+
+            with urllib.request.urlopen(
+                request,
+                timeout=timeout,
+                context=CTX,
+            ) as response:
+
+                return response.read()
+
+        except Exception as exc:
+
+            last_error = exc
+
+            print(
+                f"{label}: connection/timeout error "
+                f"{exc}"
+            )
+
+            if attempt < retries:
+                time.sleep(
+                    HTTP_RETRY_DELAY
+                )
+
+    raise RuntimeError(
+        str(last_error)
     )
-
-    if text in {
-        "-",
-        "—",
-        "–",
-        "N/A",
-        "NA",
-        "",
-    }:
-        return None
-
-    try:
-        return float(text)
-
-    except (
-        ValueError,
-        TypeError,
-    ):
-        return None
-
-
-def norm_market(value: Any) -> str:
-    return str(value or "").strip().lower()
 
 
 def load_json(
@@ -235,6 +207,7 @@ def load_json(
 ) -> Any:
 
     try:
+
         return json.loads(
             path.read_text(
                 encoding="utf-8"
@@ -242,6 +215,7 @@ def load_json(
         )
 
     except Exception:
+
         return default
 
 
@@ -261,73 +235,67 @@ def save_json(
     )
 
 
-def fetch(
-    url: str,
-    log: list[str],
-    label: str,
-    timeout: int = HTTP_TIMEOUT,
-    retries: int = HTTP_RETRIES,
-) -> bytes:
+def norm_market(
+    value: Any,
+) -> str:
 
-    last_error: Exception | None = None
+    return str(
+        value or ""
+    ).strip().lower()
 
-    for attempt in range(
-        1,
-        retries + 1,
-    ):
 
-        log.append(
-            f"{label}: HTTP attempt "
-            f"{attempt}/{retries}"
-        )
+def clean_number(
+    value: Any,
+) -> float | None:
 
-        try:
+    if value is None:
+        return None
 
-            request = urllib.request.Request(
-                url,
-                headers={
-                    "User-Agent": UA,
-                    "Accept": (
-                        "text/html,"
-                        "application/xhtml+xml,"
-                        "application/xml,"
-                        "text/xml,"
-                        "*/*"
-                    ),
-                    "Cache-Control": "no-cache",
-                },
-            )
+    text = str(
+        value
+    ).strip()
 
-            with urllib.request.urlopen(
-                request,
-                timeout=timeout,
-                context=CTX,
-            ) as response:
+    if not text:
+        return None
 
-                return response.read()
-
-        except Exception as exc:
-
-            last_error = exc
-
-            log.append(
-                f"{label}: connection/timeout "
-                f"error {exc}"
-            )
-
-            if attempt < retries:
-                time.sleep(
-                    HTTP_RETRY_DELAY
-                )
-
-    raise RuntimeError(
-        str(last_error)
+    text = (
+        text
+        .replace(",", "")
+        .replace("%", "")
+        .strip()
     )
 
+    if text in {
+        "-",
+        "—",
+        "–",
+        "n/a",
+        "na",
+        "null",
+    }:
+
+        return None
+
+    try:
+
+        return float(text)
+
+    except ValueError:
+
+        return None
+
 
 # ============================================================================
-# LOAD PHASE 1 UNIVERSE
+# PHASE 1 INSTRUMENT UNIVERSE
 # ============================================================================
+
+COUNTRY_FILES = {
+    "United States": DATA / "usa.json",
+    "Singapore": DATA / "singapore.json",
+    "Hong Kong": DATA / "hongkong.json",
+    "India": DATA / "india.json",
+}
+
 
 def load_instrument_universe(
     log: list[str],
@@ -404,14 +372,14 @@ def load_instrument_universe(
 
     log.append(
         f"Loaded {len(instruments)} "
-        "instruments from Phase 1 country files."
+        f"instruments from Phase 1 country files."
     )
 
     return instruments
 
 
 # ============================================================================
-# INITIALIZE LIVE FIELDS
+# LIVE FIELD INITIALIZATION
 # ============================================================================
 
 def initialize_live_fields(
@@ -449,9 +417,11 @@ def update_us_curve(
     log: list[str],
 ) -> dict[str, Any]:
 
-    year = datetime.now(
-        timezone.utc
-    ).year
+    year = (
+        datetime.now(
+            timezone.utc
+        ).year
+    )
 
     url = (
         TREASURY_URL
@@ -461,7 +431,6 @@ def update_us_curve(
 
     raw = fetch(
         url,
-        log,
         "USA Treasury",
         timeout=30,
         retries=2,
@@ -550,10 +519,7 @@ def update_us_curve(
         "30 Yr": "BC_30YEAR",
     }
 
-    curve: dict[
-        str,
-        float,
-    ] = {}
+    curve: dict[str, float] = {}
 
     for label, field in tenors.items():
 
@@ -611,7 +577,7 @@ def update_us_instruments(
 
     curve = us.get(
         "curve",
-        {},
+        {}
     )
 
     date = us.get(
@@ -627,20 +593,17 @@ def update_us_instruments(
     for instrument in instruments:
 
         if norm_market(
-            instrument.get(
-                "market"
-            )
+            instrument.get("market")
         ) not in {
             "united states",
             "usa",
             "us",
         }:
+
             continue
 
         bond = str(
-            instrument.get(
-                "bond"
-            )
+            instrument.get("bond")
             or ""
         )
 
@@ -658,33 +621,16 @@ def update_us_instruments(
         if value is None:
             continue
 
-        previous = instrument.get(
-            "yield"
+        instrument["previousYield"] = (
+            instrument.get("yield")
         )
 
-        if previous is not None:
+        instrument["yield"] = value
+        instrument["liveYield"] = value
+        instrument["liveDate"] = date
 
-            instrument[
-                "previousYield"
-            ] = previous
-
-        instrument[
-            "yield"
-        ] = value
-
-        instrument[
-            "liveYield"
-        ] = value
-
-        instrument[
-            "liveDate"
-        ] = date
-
-        instrument[
-            "dataStatus"
-        ] = (
-            "live U.S. Treasury "
-            "benchmark yield"
+        instrument["dataStatus"] = (
+            "live U.S. Treasury benchmark yield"
         )
 
 
@@ -698,7 +644,6 @@ def update_hkma(
 
     raw = fetch(
         HKMA_URL,
-        log,
         "Hong Kong HKMA",
         timeout=30,
         retries=2,
@@ -711,10 +656,9 @@ def update_hkma(
         )
     )
 
-    result = (
-        obj.get("result")
-        or {}
-    )
+    result = obj.get(
+        "result"
+    ) or {}
 
     rows = (
         result.get("records")
@@ -728,7 +672,8 @@ def update_hkma(
     ):
 
         raise RuntimeError(
-            "HKMA response did not contain records"
+            "HKMA response did not "
+            "contain records"
         )
 
     output: list[
@@ -755,14 +700,10 @@ def update_hkma(
                     "issue_no"
                 ),
                 "yield": clean_number(
-                    row.get(
-                        "yield"
-                    )
+                    row.get("yield")
                 ),
                 "price": clean_number(
-                    row.get(
-                        "price"
-                    )
+                    row.get("price")
                 ),
                 "source": "HKMA",
             }
@@ -785,25 +726,20 @@ def update_hk_instruments(
     for instrument in instruments:
 
         if norm_market(
-            instrument.get(
-                "market"
-            )
+            instrument.get("market")
         ) != "hong kong":
+
             continue
 
         bond = str(
-            instrument.get(
-                "bond"
-            )
+            instrument.get("bond")
             or ""
-        ).lower()
+        )
 
         isin = str(
-            instrument.get(
-                "isin"
-            )
+            instrument.get("isin")
             or ""
-        ).strip()
+        )
 
         hit = None
 
@@ -821,7 +757,7 @@ def update_hk_instruments(
                             "issue_no"
                         )
                         or ""
-                    ).strip()
+                    )
                     == isin
                 ),
                 None,
@@ -829,9 +765,13 @@ def update_hk_instruments(
 
         if hit is None:
 
+            bond_lower = (
+                bond.lower()
+            )
+
             if (
                 "exchange fund note"
-                in bond
+                in bond_lower
             ):
 
                 hit = next(
@@ -851,7 +791,7 @@ def update_hk_instruments(
 
             elif (
                 "exchange fund bill"
-                in bond
+                in bond_lower
             ):
 
                 hit = next(
@@ -874,76 +814,59 @@ def update_hk_instruments(
 
         changed = False
 
-        live_yield = hit.get(
+        if hit.get(
             "yield"
-        )
+        ) is not None:
 
-        live_price = hit.get(
-            "price"
-        )
-
-        if live_yield is not None:
-
-            previous = instrument.get(
-                "yield"
+            instrument["previousYield"] = (
+                instrument.get(
+                    "yield"
+                )
             )
 
-            if previous is not None:
+            instrument["yield"] = (
+                hit["yield"]
+            )
 
-                instrument[
-                    "previousYield"
-                ] = previous
-
-            instrument[
-                "yield"
-            ] = live_yield
-
-            instrument[
-                "liveYield"
-            ] = live_yield
+            instrument["liveYield"] = (
+                hit["yield"]
+            )
 
             changed = True
 
-        if live_price is not None:
+        if hit.get(
+            "price"
+        ) is not None:
 
-            previous = instrument.get(
-                "price"
+            instrument["previousPrice"] = (
+                instrument.get(
+                    "price"
+                )
             )
 
-            if previous is not None:
+            instrument["price"] = (
+                hit["price"]
+            )
 
-                instrument[
-                    "previousPrice"
-                ] = previous
-
-            instrument[
-                "price"
-            ] = live_price
-
-            instrument[
-                "livePrice"
-            ] = live_price
+            instrument["livePrice"] = (
+                hit["price"]
+            )
 
             changed = True
 
         if changed:
 
-            instrument[
-                "liveDate"
-            ] = hit.get(
-                "date"
+            instrument["liveDate"] = (
+                hit.get("date")
             )
 
-            instrument[
-                "dataStatus"
-            ] = (
-                "live HKMA "
-                "indicative data"
+            instrument["dataStatus"] = (
+                "live HKMA indicative data"
             )
 
 
 # ============================================================================
-# MAS HTML TABLE PARSER
+# HTML TABLE PARSER
 # ============================================================================
 
 class MASHTMLParser(
@@ -954,23 +877,25 @@ class MASHTMLParser(
         self,
     ) -> None:
 
-        super().__init__(
-            convert_charrefs=True
-        )
+        super().__init__()
 
-        self.rows: list[
-            list[str]
+        self.tables: list[
+            list[list[str]]
         ] = []
+
+        self.current_table: list[
+            list[str]
+        ] | None = None
 
         self.current_row: list[
             str
-        ] = []
-
-        self.current_cell: list[
-            str
-        ] = []
+        ] | None = None
 
         self.in_cell = False
+
+        self.cell_buffer: list[
+            str
+        ] = []
 
     def handle_starttag(
         self,
@@ -985,17 +910,26 @@ class MASHTMLParser(
 
         tag = tag.lower()
 
-        if tag == "tr":
+        if tag == "table":
+
+            self.current_table = []
+
+        elif (
+            tag == "tr"
+            and self.current_table
+            is not None
+        ):
 
             self.current_row = []
 
-        elif tag in {
-            "td",
-            "th",
-        }:
+        elif (
+            tag in {"td", "th"}
+            and self.current_row
+            is not None
+        ):
 
             self.in_cell = True
-            self.current_cell = []
+            self.cell_buffer = []
 
     def handle_endtag(
         self,
@@ -1004,34 +938,51 @@ class MASHTMLParser(
 
         tag = tag.lower()
 
-        if tag in {
-            "td",
-            "th",
-        }:
+        if (
+            tag in {"td", "th"}
+            and self.in_cell
+        ):
 
-            if self.in_cell:
+            text = " ".join(
+                "".join(
+                    self.cell_buffer
+                ).split()
+            )
 
-                value = " ".join(
-                    "".join(
-                        self.current_cell
-                    ).split()
-                )
+            if self.current_row is not None:
 
                 self.current_row.append(
-                    value
+                    text
                 )
 
-                self.in_cell = False
+            self.in_cell = False
+            self.cell_buffer = []
 
-        elif tag == "tr":
+        elif (
+            tag == "tr"
+            and self.current_row
+            is not None
+        ):
 
-            if self.current_row:
+            if self.current_table is not None:
 
-                self.rows.append(
-                    self.current_row
+                if self.current_row:
+
+                    self.current_table.append(
+                        self.current_row
+                    )
+
+            self.current_row = None
+
+        elif tag == "table":
+
+            if self.current_table is not None:
+
+                self.tables.append(
+                    self.current_table
                 )
 
-            self.current_row = []
+            self.current_table = None
 
     def handle_data(
         self,
@@ -1040,7 +991,7 @@ class MASHTMLParser(
 
         if self.in_cell:
 
-            self.current_cell.append(
+            self.cell_buffer.append(
                 data
             )
 
@@ -1049,486 +1000,591 @@ class MASHTMLParser(
 # MAS HELPERS
 # ============================================================================
 
-def validate_sgs_yield(
-    value: float | None,
-) -> float | None:
+def normalize_cell(
+    value: Any,
+) -> str:
 
-    if value is None:
-        return None
-
-    if not 0 <= value <= 20:
-        return None
-
-    return value
-
-
-def validate_sgs_price(
-    value: float | None,
-) -> float | None:
-
-    if value is None:
-        return None
-
-    if not 50 <= value <= 150:
-        return None
-
-    return value
+    return re.sub(
+        r"\s+",
+        " ",
+        str(
+            value or ""
+        ).strip()
+    )
 
 
-def find_sgs_codes(
-    text: str,
-) -> list[str]:
+def row_contains_issue_code(
+    row: list[str],
+) -> bool:
 
-    upper = text.upper()
+    joined = " ".join(
+        normalize_cell(
+            cell
+        ).upper()
+        for cell in row
+    )
 
-    found: list[str] = []
+    return any(
+        code in joined
+        for code in MAS_TRACKED_ISSUES
+    )
 
-    for code in SGS_ISSUE_CODES:
 
-        if code in upper:
+def table_contains_mas_benchmarks(
+    table: list[list[str]],
+) -> bool:
 
-            found.append(
-                code
+    code_count = 0
+
+    for row in table:
+
+        for cell in row:
+
+            cell_upper = (
+                normalize_cell(
+                    cell
+                ).upper()
             )
 
-    return found
+            for code in MAS_TRACKED_ISSUES:
+
+                if code in cell_upper:
+
+                    code_count += 1
+
+    return code_count >= 3
 
 
-def extract_mas_date(
-    text: str,
-) -> str | None:
+def parse_date_cell(
+    value: str,
+) -> datetime | None:
 
-    patterns = [
-        r"\b\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\b",
-        r"\b\d{1,2}\s+[A-Za-z]+\s+\d{4}\b",
+    value = normalize_cell(
+        value
+    )
+
+    formats = [
+        "%d %b %Y",
+        "%d %B %Y",
+        "%d-%b-%Y",
+        "%d/%m/%Y",
+        "%Y-%m-%d",
     ]
 
-    dates: list[str] = []
+    for fmt in formats:
 
-    for pattern in patterns:
+        try:
 
-        for value in re.findall(
-            pattern,
-            text,
-        ):
+            return datetime.strptime(
+                value,
+                fmt,
+            )
 
-            if value not in dates:
+        except ValueError:
 
-                dates.append(
-                    value
-                )
+            continue
 
-    if not dates:
-        return None
-
-    return dates[-1]
+    return None
 
 
-def row_numbers(
+def is_date_string(
+    value: str,
+) -> bool:
+
+    return (
+        parse_date_cell(
+            value
+        )
+        is not None
+    )
+
+
+def extract_numeric_cells(
     row: list[str],
-) -> list[float]:
+) -> list[float | None]:
 
-    values: list[float] = []
+    output: list[
+        float | None
+    ] = []
 
     for cell in row:
 
-        # Ignore dates and issue codes.
-        if re.search(
-            r"\d{1,2}\s+[A-Za-z]{3}\s+\d{4}",
-            cell,
-        ):
-            continue
-
-        if any(
-            code in cell.upper()
-            for code in SGS_ISSUE_CODES
-        ):
-            continue
-
-        value = clean_number(
+        value = normalize_cell(
             cell
         )
 
-        if value is not None:
+        if value in {
+            "",
+            "-",
+            "—",
+            "–",
+        }:
 
-            values.append(
-                value
+            output.append(
+                None
             )
 
-    return values
-
-
-def build_sgs_rows_from_numbers(
-    date: str,
-    numbers: list[float],
-) -> list[dict[str, Any]]:
-
-    """
-    MAS benchmark sequence can contain:
-
-        2Y Price
-        2Y Yield
-        5Y Price
-        5Y Yield
-        10Y Price
-        10Y Yield
-        15Y Price
-        15Y Yield
-        20Y Price
-        20Y Yield
-        30Y Price
-        30Y Yield
-        50Y Yield
-
-    Some MAS HTML representations include additional
-    leading columns. Therefore the final 13 values
-    are treated as the SGS benchmark block.
-    """
-
-    if len(numbers) < 13:
-
-        return []
-
-    block = numbers[-13:]
-
-    mapping = {
-        "N523100W": {
-            "price": block[0],
-            "yield": block[1],
-        },
-
-        "NX21100N": {
-            "price": block[2],
-            "yield": block[3],
-        },
-
-        "NZ16100X": {
-            "price": block[4],
-            "yield": block[5],
-        },
-
-        "NY25200N": {
-            "price": block[6],
-            "yield": block[7],
-        },
-
-        "NA16100H": {
-            "price": block[10],
-            "yield": block[11],
-        },
-
-        "NC22300W": {
-            "price": block[12],
-            "yield": None,
-        },
-    }
-
-    output: list[
-        dict[str, Any]
-    ] = []
-
-    for code, values in mapping.items():
-
-        y = validate_sgs_yield(
-            clean_number(
-                values.get(
-                    "yield"
-                )
-            )
-        )
-
-        p = validate_sgs_price(
-            clean_number(
-                values.get(
-                    "price"
-                )
-            )
-        )
-
-        if (
-            y is None
-            and p is None
-        ):
             continue
 
+        number = clean_number(
+            value
+        )
+
         output.append(
-            {
-                "issue_code": code,
-                "yield": y,
-                "price": p,
-                "date": date,
-                "source": "MAS",
-            }
+            number
         )
 
     return output
 
 
 # ============================================================================
-# MAS PARSER
+# MAS TABLE PARSER
 # ============================================================================
 
-def parse_mas(
+def parse_mas_benchmark_table(
     html: str,
     log: list[str],
 ) -> dict[str, Any]:
 
-    tracked = find_sgs_codes(
+    parser = MASHTMLParser()
+
+    parser.feed(
         html
     )
 
+    benchmark_tables: list[
+        list[list[str]]
+    ] = []
+
+    for table in parser.tables:
+
+        if table_contains_mas_benchmarks(
+            table
+        ):
+
+            benchmark_tables.append(
+                table
+            )
+
+    detected_codes: set[str] = set()
+
+    for table in benchmark_tables:
+
+        for row in table:
+
+            for cell in row:
+
+                upper = normalize_cell(
+                    cell
+                ).upper()
+
+                for code in MAS_TRACKED_ISSUES:
+
+                    if code in upper:
+
+                        detected_codes.add(
+                            code
+                        )
+
     log.append(
-        "Singapore: MAS page fetched; "
-        f"found {len(tracked)}/"
-        f"{len(SGS_ISSUE_CODES)} "
+        "Singapore MAS: page fetched; "
+        f"found {len(detected_codes)}/"
+        f"{len(MAS_TRACKED_ISSUES)} "
         "tracked issue codes."
     )
 
-    if not tracked:
+    if not benchmark_tables:
 
-        log.append(
-            "Singapore: MAS benchmark issue "
-            "codes could not be detected."
+        # The table parser did not recognize the structure.
+        # Try a conservative text fallback only to diagnose
+        # whether the issue codes are actually present.
+
+        visible = re.sub(
+            r"<script.*?</script>",
+            " ",
+            html,
+            flags=(
+                re.IGNORECASE
+                | re.DOTALL
+            ),
         )
+
+        visible = re.sub(
+            r"<style.*?</style>",
+            " ",
+            visible,
+            flags=(
+                re.IGNORECASE
+                | re.DOTALL
+            ),
+        )
+
+        visible = re.sub(
+            r"<[^>]+>",
+            " ",
+            visible,
+        )
+
+        visible = re.sub(
+            r"\s+",
+            " ",
+            visible,
+        )
+
+        fallback_codes = {
+            code
+            for code in MAS_TRACKED_ISSUES
+            if code in visible.upper()
+        }
+
+        if fallback_codes:
+
+            log.append(
+                "Singapore MAS: issue codes are "
+                "present in the page text, but "
+                "the benchmark HTML table could "
+                "not be parsed safely."
+            )
+
+        else:
+
+            log.append(
+                "Singapore MAS: benchmark issue "
+                "codes could not be detected."
+            )
 
         return {
             "source": "MAS",
             "status": "fetched_no_table",
             "rows": [],
-            "matchedIssueCodes": 0,
+            "detectedIssueCodes": sorted(
+                fallback_codes
+            ),
         }
 
     # ------------------------------------------------------------------
-    # Strategy 1: Parse actual HTML table rows.
+    # MAS benchmark table layout
+    #
+    # The official Closing Levels table is:
+    #
+    # 6-Mth
+    # 1-Year
+    # 2-Year
+    # 5-Year
+    # 10-Year
+    # 15-Year
+    # 20-Year
+    # 30-Year
+    # 50-Year
+    #
+    # Data row:
+    #
+    # 6M Yield
+    # 1Y Yield
+    # 2Y Yield
+    # 2Y Price
+    # 5Y Yield
+    # 5Y Price
+    # 10Y Yield
+    # 10Y Price
+    # 15Y Yield
+    # 15Y Price
+    # 20Y Yield
+    # 20Y Price
+    # 30Y Yield
+    # 30Y Price
+    # 50Y Yield
+    #
+    # We do NOT hard-code actual market values.
+    # We only map the structure.
     # ------------------------------------------------------------------
 
-    parser = MASHTMLParser()
-
-    try:
-
-        parser.feed(
-            html
-        )
-
-    except Exception:
-
-        pass
+    # First identify the benchmark table containing
+    # at least one date row.
 
     candidate_rows: list[
-        tuple[
-            str,
-            list[str],
-        ]
+        list[str]
     ] = []
 
-    for row in parser.rows:
+    for table in benchmark_tables:
 
-        joined = " ".join(
-            row
-        )
+        for row in table:
 
-        date_match = re.search(
-            r"\b(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})\b",
-            joined,
-        )
+            if not row:
+                continue
 
-        if not date_match:
-            continue
-
-        numbers = row_numbers(
-            row
-        )
-
-        if len(numbers) >= 13:
-
-            candidate_rows.append(
-                (
-                    date_match.group(1),
-                    row,
-                )
+            first = normalize_cell(
+                row[0]
             )
 
-    if candidate_rows:
+            if is_date_string(
+                first
+            ):
 
-        latest_date, latest_row = (
-            candidate_rows[-1]
-        )
-
-        numbers = row_numbers(
-            latest_row
-        )
-
-        rows = build_sgs_rows_from_numbers(
-            latest_date,
-            numbers,
-        )
-
-        if rows:
-
-            matched = len(
-                {
-                    row[
-                        "issue_code"
-                    ]
-                    for row in rows
-                }
-            )
-
-            log.append(
-                "Singapore: MAS live benchmark "
-                "data parsed for "
-                f"{matched}/"
-                f"{len(SGS_ISSUE_CODES)} "
-                "tracked issues."
-            )
-
-            return {
-                "source": "MAS",
-                "status": "success",
-                "date": latest_date,
-                "rows": rows,
-                "matchedIssueCodes": matched,
-            }
-
-    # ------------------------------------------------------------------
-    # Strategy 2: Visible-text fallback.
-    # ------------------------------------------------------------------
-
-    text = re.sub(
-        r"<script\b.*?</script>",
-        " ",
-        html,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    text = re.sub(
-        r"<style\b.*?</style>",
-        " ",
-        text,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    text = re.sub(
-        r"<[^>]+>",
-        " ",
-        text,
-    )
-
-    text = (
-        text
-        .replace("&nbsp;", " ")
-        .replace("&#160;", " ")
-        .replace("&amp;", "&")
-    )
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        text,
-    ).strip()
-
-    date_pattern = (
-        r"\b\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\b"
-    )
-
-    date_matches = list(
-        re.finditer(
-            date_pattern,
-            text,
-        )
-    )
-
-    # Work backwards through dates.
-    for date_match in reversed(
-        date_matches
-    ):
-
-        date = date_match.group()
-
-        after = text[
-            date_match.end():
-        ]
-
-        # Limit the search window.
-        after = after[:4000]
-
-        numbers: list[
-            float
-        ] = []
-
-        for value in re.findall(
-            r"(?<![A-Za-z])"
-            r"\d+(?:\.\d+)?"
-            r"(?![A-Za-z])",
-            after,
-        ):
-
-            number = clean_number(
-                value
-            )
-
-            if number is not None:
-
-                numbers.append(
-                    number
+                candidate_rows.append(
+                    row
                 )
 
-        if len(numbers) < 13:
-            continue
-
-        rows = build_sgs_rows_from_numbers(
-            date,
-            numbers,
-        )
-
-        if not rows:
-            continue
-
-        matched = len(
-            {
-                row[
-                    "issue_code"
-                ]
-                for row in rows
-            }
-        )
+    if not candidate_rows:
 
         log.append(
-            "Singapore: MAS live benchmark "
-            "data parsed for "
-            f"{matched}/"
-            f"{len(SGS_ISSUE_CODES)} "
-            "tracked issues using "
-            "visible-text fallback."
+            "Singapore MAS: benchmark issue "
+            "codes were found, but no dated "
+            "Closing Levels row could be parsed."
         )
 
         return {
             "source": "MAS",
-            "status": "success",
-            "date": date,
-            "rows": rows,
-            "matchedIssueCodes": matched,
+            "status": "fetched_no_data_row",
+            "rows": [],
+            "detectedIssueCodes": sorted(
+                detected_codes
+            ),
         }
 
     # ------------------------------------------------------------------
-    # Safe failure.
+    # Choose the latest actual MAS date row.
     # ------------------------------------------------------------------
 
+    dated_rows: list[
+        tuple[
+            datetime,
+            list[str],
+        ]
+    ] = []
+
+    for row in candidate_rows:
+
+        dt = parse_date_cell(
+            normalize_cell(
+                row[0]
+            )
+        )
+
+        if dt is not None:
+
+            dated_rows.append(
+                (
+                    dt,
+                    row,
+                )
+            )
+
+    if not dated_rows:
+
+        log.append(
+            "Singapore MAS: no usable dated "
+            "benchmark row was found."
+        )
+
+        return {
+            "source": "MAS",
+            "status": "fetched_no_date",
+            "rows": [],
+        }
+
+    dated_rows.sort(
+        key=lambda item: item[0]
+    )
+
+    latest_dt, latest_row = (
+        dated_rows[-1]
+    )
+
+    latest_date = latest_dt.strftime(
+        "%Y-%m-%d"
+    )
+
+    # ------------------------------------------------------------------
+    # Convert latest row into numeric values.
+    # ------------------------------------------------------------------
+
+    cells = [
+        normalize_cell(
+            cell
+        )
+        for cell in latest_row
+    ]
+
+    # Remove the date.
+    values = extract_numeric_cells(
+        cells[1:]
+    )
+
+    # MAS normally supplies 15 benchmark values.
+    #
+    # However, some cells may be omitted by HTML layout or
+    # represented as '-' and therefore appear as None.
+    #
+    # We require at least the 2Y/5Y/10Y/15Y/30Y/50Y positions
+    # to be addressable.
+    if len(values) < 15:
+
+        log.append(
+            "Singapore MAS: latest benchmark "
+            "row is incomplete; expected at "
+            f"least 15 value columns, got "
+            f"{len(values)}."
+        )
+
+        return {
+            "source": "MAS",
+            "status": "fetched_incomplete",
+            "rows": [],
+            "date": latest_date,
+        }
+
+    # ------------------------------------------------------------------
+    # Official benchmark column positions.
+    #
+    # values[0]  = 6M yield
+    # values[1]  = 1Y yield
+    #
+    # values[2]  = 2Y yield
+    # values[3]  = 2Y price
+    #
+    # values[4]  = 5Y yield
+    # values[5]  = 5Y price
+    #
+    # values[6]  = 10Y yield
+    # values[7]  = 10Y price
+    #
+    # values[8]  = 15Y yield
+    # values[9]  = 15Y price
+    #
+    # values[10] = 20Y yield
+    # values[11] = 20Y price
+    #
+    # values[12] = 30Y yield
+    # values[13] = 30Y price
+    #
+    # values[14] = 50Y yield
+    # ------------------------------------------------------------------
+
+    benchmark_values = {
+        "N523100W": {
+            "yield": values[2],
+            "price": values[3],
+        },
+        "NX21100N": {
+            "yield": values[4],
+            "price": values[5],
+        },
+        "NZ16100X": {
+            "yield": values[6],
+            "price": values[7],
+        },
+        "NY25200N": {
+            "yield": values[8],
+            "price": values[9],
+        },
+        "NA16100H": {
+            "yield": values[12],
+            "price": values[13],
+        },
+        "NC22300W": {
+            "yield": values[14],
+            "price": None,
+        },
+    }
+
+    rows: list[
+        dict[str, Any]
+    ] = []
+
+    for issue_code, data in (
+        benchmark_values.items()
+    ):
+
+        yield_value = data.get(
+            "yield"
+        )
+
+        price_value = data.get(
+            "price"
+        )
+
+        # Conservative sanity checks.
+        #
+        # SGS benchmark yields are expected to be
+        # ordinary percentage yields.
+        #
+        # Prices are normally quoted around par and
+        # should be well inside this broad range.
+        if (
+            yield_value is not None
+            and not (
+                0
+                <= yield_value
+                <= 20
+            )
+        ):
+
+            yield_value = None
+
+        if (
+            price_value is not None
+            and not (
+                50
+                <= price_value
+                <= 150
+            )
+        ):
+
+            price_value = None
+
+        if (
+            yield_value is None
+            and price_value is None
+        ):
+
+            continue
+
+        rows.append(
+            {
+                "issue_code": issue_code,
+                "yield": yield_value,
+                "price": price_value,
+                "date": latest_date,
+                "source": "MAS",
+            }
+        )
+
+    if not rows:
+
+        log.append(
+            "Singapore MAS: issue codes were "
+            "found, but no safe benchmark data "
+            "row could be parsed."
+        )
+
+        return {
+            "source": "MAS",
+            "status": "fetched_no_safe_data",
+            "rows": [],
+            "date": latest_date,
+        }
+
     log.append(
-        "Singapore: MAS issue codes were found, "
-        "but no safe benchmark data row could be parsed."
+        "Singapore: MAS live benchmark data "
+        f"parsed for {len(rows)}/"
+        f"{len(MAS_TRACKED_ISSUES)} "
+        f"tracked issues ({latest_date})."
     )
 
     return {
         "source": "MAS",
-        "status": "fetched_no_table",
-        "rows": [],
-        "matchedIssueCodes": len(tracked),
+        "status": "success",
+        "date": latest_date,
+        "rows": rows,
+        "detectedIssueCodes": sorted(
+            detected_codes
+        ),
     }
 
 
 # ============================================================================
-# UPDATE SINGAPORE INSTRUMENTS
+# SINGAPORE INSTRUMENT UPDATE
 # ============================================================================
 
 def update_singapore_instruments(
@@ -1538,7 +1594,7 @@ def update_singapore_instruments(
 
     rows = mas.get(
         "rows",
-        [],
+        []
     )
 
     if not isinstance(
@@ -1547,13 +1603,25 @@ def update_singapore_instruments(
     ):
         return
 
-    isin_to_issue_code = {
-        "SGXF51035222": "N523100W",
-        "SGXF76205099": "NX21100N",
-        "SG31A9000002": "NZ16100X",
-        "SGXF29838152": "NY25200N",
-        "SG31A7000004": "NA16100H",
-        "SGXF47639806": "NC22300W",
+    # ------------------------------------------------------------------
+    # IMPORTANT:
+    #
+    # We no longer use the previous incorrect hard-coded ISIN mapping.
+    #
+    # The Phase 1 Singapore JSON already contains issue_code for the
+    # tracked SGS instruments where available.
+    #
+    # If issue_code is missing, we use the bond name only as a safe
+    # fallback.
+    # ------------------------------------------------------------------
+
+    name_to_issue = {
+        "2.875% SGS 2028": "N523100W",
+        "1.625% SGS 2031": "NX21100N",
+        "2.250% SGS 2036": "NZ16100X",
+        "2.250% SGS 2040": "NY25200N",
+        "2.750% SGS 2046": "NA16100H",
+        "3.000% SGS 2072": "NC22300W",
     }
 
     matched = 0
@@ -1561,10 +1629,9 @@ def update_singapore_instruments(
     for instrument in instruments:
 
         if norm_market(
-            instrument.get(
-                "market"
-            )
+            instrument.get("market")
         ) != "singapore":
+
             continue
 
         issue_code = str(
@@ -1574,21 +1641,19 @@ def update_singapore_instruments(
             or ""
         ).strip().upper()
 
-        isin = str(
+        bond = str(
             instrument.get(
-                "isin"
+                "bond"
             )
             or ""
-        ).strip().upper()
+        ).strip()
 
-        if (
-            not issue_code
-            and isin
-        ):
+        # Safe fallback from bond name.
+        if not issue_code:
 
             issue_code = (
-                isin_to_issue_code.get(
-                    isin,
+                name_to_issue.get(
+                    bond,
                     "",
                 )
             )
@@ -1616,85 +1681,88 @@ def update_singapore_instruments(
 
         changed = False
 
-        y = hit.get(
+        # --------------------------------------------------------------
+        # Yield
+        # --------------------------------------------------------------
+
+        live_yield = hit.get(
             "yield"
         )
 
-        p = hit.get(
+        if live_yield is not None:
+
+            instrument["previousYield"] = (
+                instrument.get(
+                    "yield"
+                )
+            )
+
+            instrument["yield"] = (
+                live_yield
+            )
+
+            instrument["liveYield"] = (
+                live_yield
+            )
+
+            changed = True
+
+        # --------------------------------------------------------------
+        # Price
+        # --------------------------------------------------------------
+
+        live_price = hit.get(
             "price"
         )
 
-        if y is not None:
+        if live_price is not None:
 
-            previous = instrument.get(
-                "yield"
+            instrument["previousPrice"] = (
+                instrument.get(
+                    "price"
+                )
             )
 
-            if previous is not None:
+            instrument["price"] = (
+                live_price
+            )
 
-                instrument[
-                    "previousYield"
-                ] = previous
-
-            instrument[
-                "yield"
-            ] = y
-
-            instrument[
-                "liveYield"
-            ] = y
+            instrument["livePrice"] = (
+                live_price
+            )
 
             changed = True
 
-        if p is not None:
-
-            previous = instrument.get(
-                "price"
-            )
-
-            if previous is not None:
-
-                instrument[
-                    "previousPrice"
-                ] = previous
-
-            instrument[
-                "price"
-            ] = p
-
-            instrument[
-                "livePrice"
-            ] = p
-
-            changed = True
+        # --------------------------------------------------------------
+        # Date
+        # --------------------------------------------------------------
 
         if changed:
 
-            instrument[
-                "liveDate"
-            ] = hit.get(
-                "date"
+            instrument["liveDate"] = (
+                hit.get(
+                    "date"
+                )
             )
 
-            instrument[
-                "dataStatus"
-            ] = (
+            instrument["dataStatus"] = (
                 "live MAS SGS data"
             )
 
+            # Keep issue_code visible in live.json.
             if not instrument.get(
                 "issue_code"
             ):
 
-                instrument[
-                    "issue_code"
-                ] = issue_code
+                instrument["issue_code"] = (
+                    issue_code
+                )
 
             matched += 1
 
-    mas[
-        "matchedInstruments"
-    ] = matched
+    mas["matchedInstruments"] = (
+        matched
+    )
 
 
 # ============================================================================
@@ -1708,11 +1776,13 @@ def update_india_instruments(
     for instrument in instruments:
 
         if norm_market(
-            instrument.get(
-                "market"
-            )
+            instrument.get("market")
         ) != "india":
+
             continue
+
+        # India live quote extraction is deliberately not
+        # fabricated. Preserve the Phase 1 RBI universe.
 
         instrument.setdefault(
             "liveYield",
@@ -1729,9 +1799,7 @@ def update_india_instruments(
             None,
         )
 
-        instrument[
-            "dataStatus"
-        ] = (
+        instrument["dataStatus"] = (
             "RBI source configured; "
             "instrument quote endpoint unavailable"
         )
@@ -1773,12 +1841,14 @@ def main() -> None:
 
     log: list[str] = []
 
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 1. Load Phase 1 universe
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
-    instruments = load_instrument_universe(
-        log
+    instruments = (
+        load_instrument_universe(
+            log
+        )
     )
 
     if not instruments:
@@ -1789,11 +1859,10 @@ def main() -> None:
         )
 
         payload = {
-            "schemaVersion": VERSION,
+            "schemaVersion": "3.9",
             "updatedAt": now_utc(),
             "status": "error",
             "sources": {},
-            "instrumentCount": 0,
             "instruments": [],
             "log": log,
         }
@@ -1806,16 +1875,11 @@ def main() -> None:
         save_json(
             LAST_UPDATE,
             {
-                "updatedAt":
-                    payload[
-                        "updatedAt"
-                    ],
-                "status":
-                    "error",
-                "instrumentCount":
-                    0,
-                "log":
-                    log,
+                "updatedAt": payload[
+                    "updatedAt"
+                ],
+                "status": "error",
+                "log": log,
             },
         )
 
@@ -1827,9 +1891,9 @@ def main() -> None:
         instruments
     )
 
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 2. USA
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     try:
 
@@ -1845,23 +1909,19 @@ def main() -> None:
     except Exception as exc:
 
         us = {
-            "source":
-                "U.S. Treasury",
-            "status":
-                "error",
-            "error":
-                str(exc),
-            "curve":
-                {},
+            "source": "U.S. Treasury",
+            "status": "error",
+            "error": str(exc),
+            "curve": {},
         }
 
         log.append(
             f"USA: ERROR {exc}"
         )
 
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 3. Hong Kong
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     try:
 
@@ -1882,25 +1942,22 @@ def main() -> None:
             f"Hong Kong: ERROR {exc}"
         )
 
-    # ------------------------------------------------------------------------
-    # 4. Singapore MAS
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # 4. Singapore
+    # ------------------------------------------------------------------
 
     try:
 
-        html = fetch(
-            MAS_URL,
-            log,
-            "Singapore MAS",
-            timeout=30,
-            retries=2,
-        ).decode(
-            "utf-8",
-            errors="replace",
-        )
-
-        mas = parse_mas(
-            html,
+        mas = parse_mas_benchmark_table(
+            fetch(
+                MAS_URL,
+                "Singapore MAS",
+                timeout=30,
+                retries=2,
+            ).decode(
+                "utf-8",
+                errors="replace",
+            ),
             log,
         )
 
@@ -1912,23 +1969,19 @@ def main() -> None:
     except Exception as exc:
 
         mas = {
-            "source":
-                "MAS",
-            "status":
-                "error",
-            "error":
-                str(exc),
-            "rows":
-                [],
+            "source": "MAS",
+            "status": "error",
+            "error": str(exc),
+            "rows": [],
         }
 
         log.append(
             f"Singapore: ERROR {exc}"
         )
 
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 5. India
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     try:
 
@@ -1948,9 +2001,9 @@ def main() -> None:
             f"India: ERROR {exc}"
         )
 
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # 6. Final status
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     status = calculate_status(
         log,
@@ -1960,14 +2013,11 @@ def main() -> None:
     updated_at = now_utc()
 
     payload = {
-        "schemaVersion":
-            VERSION,
+        "schemaVersion": "3.9",
 
-        "updatedAt":
-            updated_at,
+        "updatedAt": updated_at,
 
-        "status":
-            status,
+        "status": status,
 
         "sources": {
             "usa": (
@@ -1976,10 +2026,11 @@ def main() -> None:
                 "interest-rates"
             ),
 
-            # IMPORTANT:
-            # Current official MAS benchmark page.
-            "singapore":
-                MAS_URL,
+            "singapore": (
+                "https://eservices.mas.gov.sg/"
+                "Statistics/fdanet/"
+                "SgsBenchmarkIssuePrices.aspx"
+            ),
 
             "hongkong": (
                 "https://apidocs.hkma.gov.hk/"
@@ -1988,32 +2039,29 @@ def main() -> None:
                 "efbn-indicative-price"
             ),
 
-            "india":
-                "https://data.rbi.org.in/",
+            "india": (
+                "https://data.rbi.org.in/"
+            ),
         },
 
-        "usaCurve":
-            us,
+        "usaCurve": us,
 
-        "hongkongIndicative":
-            hk,
+        "hongkongIndicative": hk,
 
-        "singaporeBenchmark":
-            mas,
+        "singaporeBenchmark": mas,
 
-        "instrumentCount":
-            len(instruments),
+        "instrumentCount": len(
+            instruments
+        ),
 
-        "instruments":
-            instruments,
+        "instruments": instruments,
 
-        "log":
-            log,
+        "log": log,
     }
 
-    # ------------------------------------------------------------------------
-    # 7. Write output
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Write outputs
+    # ------------------------------------------------------------------
 
     save_json(
         OUT,
@@ -2023,30 +2071,25 @@ def main() -> None:
     save_json(
         LAST_UPDATE,
         {
-            "updatedAt":
-                updated_at,
-
-            "status":
-                status,
-
-            "instrumentCount":
-                len(instruments),
-
-            "log":
-                log,
+            "updatedAt": updated_at,
+            "status": status,
+            "instrumentCount": len(
+                instruments
+            ),
+            "log": log,
         },
     )
 
-    # ------------------------------------------------------------------------
-    # 8. Console summary
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Console summary
+    # ------------------------------------------------------------------
 
     print(
         "=========================================="
     )
 
     print(
-        f" Bond Monitor Phase 3 Update v{VERSION}"
+        " Bond Monitor Phase 3 Update v3.9"
     )
 
     print(
@@ -2058,8 +2101,7 @@ def main() -> None:
     )
 
     print(
-        f"Instruments    : "
-        f"{len(instruments)}"
+        f"Instruments    : {len(instruments)}"
     )
 
     print(
@@ -2067,19 +2109,14 @@ def main() -> None:
         f"{us.get('status', 'unknown').upper()}"
     )
 
-    if (
-        isinstance(hk, list)
-        and hk
-    ):
-
-        hk_status = "OK"
-
-    else:
-
-        hk_status = "ERROR/PARTIAL"
-
     print(
-        f"Hong Kong      : {hk_status}"
+        "Hong Kong      : "
+        + (
+            "OK"
+            if isinstance(hk, list)
+            and hk
+            else "ERROR/PARTIAL"
+        )
     )
 
     print(
