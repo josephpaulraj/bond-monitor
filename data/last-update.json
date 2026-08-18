@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-18T07:58:26Z",
+  "updatedAt": "2026-08-18T14:06:01Z",
   "status": "success",
   "instrumentCount": 22,
   "log": [
@@ -11,7 +11,7 @@
     "USA: Treasury curve updated for 2026-08-17T00:00:00; 14 tenors.",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: page fetched; found 5/6 tracked issue codes.",
-    "Singapore: MAS live benchmark data parsed for 3/6 tracked issues (2026-08-17).",
+    "Singapore: MAS live benchmark data parsed for 2/6 tracked issues (2026-08-18).",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
