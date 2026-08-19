@@ -1,6 +1,6 @@
 {
   "schemaVersion": "3.9",
-  "updatedAt": "2026-08-19T03:15:05Z",
+  "updatedAt": "2026-08-19T07:59:12Z",
   "status": "partial",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
@@ -514,7 +514,7 @@
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
     "USA: Treasury curve updated for 2026-08-18T00:00:00; 14 tenors.",
-    "Hong Kong: ERROR The read operation timed out",
+    "Hong Kong: ERROR HTTP Error 502: Bad Gateway",
     "Singapore MAS: page fetched; found 5/6 tracked issue codes.",
     "Singapore: MAS live benchmark data parsed for 2/6 tracked issues (2026-08-18).",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
