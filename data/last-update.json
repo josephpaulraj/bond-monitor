@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-25T14:28:23Z",
+  "updatedAt": "2026-08-25T19:45:30Z",
   "status": "success",
   "instrumentCount": 22,
   "log": [
@@ -8,7 +8,7 @@
     "Hong Kong: loaded 5 instruments from hongkong.json",
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
-    "USA: Treasury curve updated for 2026-08-24T00:00:00; 14 tenors.",
+    "USA: Treasury curve updated for 2026-08-25T00:00:00; 14 tenors.",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: page fetched; found 5/6 tracked issue codes.",
     "Singapore: MAS live benchmark data parsed for 2/6 tracked issues (2026-08-25).",
