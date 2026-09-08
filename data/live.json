@@ -1,6 +1,6 @@
 {
   "schemaVersion": "3.9",
-  "updatedAt": "2026-09-08T02:49:57Z",
+  "updatedAt": "2026-09-08T10:31:04Z",
   "status": "partial",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
@@ -33,13 +33,13 @@
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "success",
-    "date": "2026-09-07",
+    "date": "2026-09-08",
     "rows": [
       {
-        "issue_code": "NY25200N",
+        "issue_code": "NX21100N",
         "yield": null,
-        "price": 98.9,
-        "date": "2026-09-07",
+        "price": 102.24,
+        "date": "2026-09-08",
         "source": "MAS"
       }
     ],
@@ -186,16 +186,18 @@
       "currency": "SGD",
       "coupon": 1.625,
       "yield": null,
-      "price": null,
+      "price": 102.24,
       "maturity": "2031-07-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": null,
-      "liveDate": null,
-      "dataStatus": "source-backed seed"
+      "livePrice": 102.24,
+      "liveDate": "2026-09-08",
+      "dataStatus": "live MAS SGS data",
+      "previousPrice": null,
+      "issue_code": "NX21100N"
     },
     {
       "market": "Singapore",
@@ -226,17 +228,16 @@
       "currency": "SGD",
       "coupon": 2.25,
       "yield": null,
-      "price": 98.9,
+      "price": null,
       "maturity": "2040-07-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 98.9,
-      "liveDate": "2026-09-07",
-      "dataStatus": "live MAS SGS data",
-      "previousPrice": null
+      "livePrice": null,
+      "liveDate": null,
+      "dataStatus": "source-backed seed"
     },
     {
       "market": "Singapore",
@@ -506,9 +507,9 @@
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
     "USA: Treasury curve updated for 2026-09-04T00:00:00; 14 tenors.",
-    "Hong Kong: ERROR HTTP Error 502: Bad Gateway",
+    "Hong Kong: ERROR The read operation timed out",
     "Singapore MAS: page fetched; found 5/6 tracked issue codes.",
-    "Singapore: MAS live benchmark data parsed for 1/6 tracked issues (2026-09-07).",
+    "Singapore: MAS live benchmark data parsed for 1/6 tracked issues (2026-09-08).",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
