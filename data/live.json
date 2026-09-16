@@ -1,7 +1,7 @@
 {
   "schemaVersion": "3.9",
-  "updatedAt": "2026-09-16T03:06:24Z",
-  "status": "partial",
+  "updatedAt": "2026-09-16T10:46:00Z",
+  "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
     "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx",
@@ -29,24 +29,74 @@
       "30 Yr": 5.36
     }
   },
-  "hongkongIndicative": [],
+  "hongkongIndicative": [
+    {
+      "date": "2026-09-16",
+      "term": "1W",
+      "issue_no": "Q2625",
+      "yield": 2.27,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-16",
+      "term": "1M",
+      "issue_no": "Q2628",
+      "yield": 2.7,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-16",
+      "term": "3M",
+      "issue_no": "Q2637",
+      "yield": 2.79,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-16",
+      "term": "6M",
+      "issue_no": "H2666",
+      "yield": 2.98,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-16",
+      "term": "9M",
+      "issue_no": "Y2690",
+      "yield": 2.96,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-16",
+      "term": "12M",
+      "issue_no": "Y2694",
+      "yield": 3.0,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-16",
+      "term": "2 YR",
+      "issue_no": "02Y2808",
+      "yield": 3.505,
+      "price": 99.11,
+      "source": "HKMA"
+    }
+  ],
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "success",
-    "date": "2026-09-15",
+    "date": "2026-09-16",
     "rows": [
-      {
-        "issue_code": "NZ16100X",
-        "yield": null,
-        "price": 97.5,
-        "date": "2026-09-15",
-        "source": "MAS"
-      },
       {
         "issue_code": "NY25200N",
         "yield": null,
-        "price": 97.65,
-        "date": "2026-09-15",
+        "price": 97.85,
+        "date": "2026-09-16",
         "source": "MAS"
       }
     ],
@@ -57,7 +107,7 @@
       "NY25200N",
       "NZ16100X"
     ],
-    "matchedInstruments": 2
+    "matchedInstruments": 1
   },
   "instrumentCount": 22,
   "instruments": [
@@ -213,17 +263,16 @@
       "currency": "SGD",
       "coupon": 2.25,
       "yield": null,
-      "price": 97.5,
+      "price": null,
       "maturity": "2036-08-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 97.5,
-      "liveDate": "2026-09-15",
-      "dataStatus": "live MAS SGS data",
-      "previousPrice": null
+      "livePrice": null,
+      "liveDate": null,
+      "dataStatus": "source-backed seed"
     },
     {
       "market": "Singapore",
@@ -234,15 +283,15 @@
       "currency": "SGD",
       "coupon": 2.25,
       "yield": null,
-      "price": 97.65,
+      "price": 97.85,
       "maturity": "2040-07-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 97.65,
-      "liveDate": "2026-09-15",
+      "livePrice": 97.85,
+      "liveDate": "2026-09-16",
       "dataStatus": "live MAS SGS data",
       "previousPrice": null
     },
@@ -514,9 +563,9 @@
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
     "USA: Treasury curve updated for 2026-09-15T00:00:00; 14 tenors.",
-    "Hong Kong: ERROR The read operation timed out",
+    "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: page fetched; found 5/6 tracked issue codes.",
-    "Singapore: MAS live benchmark data parsed for 2/6 tracked issues (2026-09-15).",
+    "Singapore: MAS live benchmark data parsed for 1/6 tracked issues (2026-09-16).",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
