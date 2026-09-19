@@ -1,7 +1,7 @@
 {
   "schemaVersion": "3.9",
-  "updatedAt": "2026-09-19T10:13:49Z",
-  "status": "partial",
+  "updatedAt": "2026-09-19T15:15:36Z",
+  "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
     "singapore": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx",
@@ -29,7 +29,64 @@
       "30 Yr": 5.34
     }
   },
-  "hongkongIndicative": [],
+  "hongkongIndicative": [
+    {
+      "date": "2026-09-18",
+      "term": "1W",
+      "issue_no": "Q2625",
+      "yield": 2.19,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-18",
+      "term": "1M",
+      "issue_no": "Q2628",
+      "yield": 2.65,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-18",
+      "term": "3M",
+      "issue_no": "Q2637",
+      "yield": 2.74,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-18",
+      "term": "6M",
+      "issue_no": "H2666",
+      "yield": 2.99,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-18",
+      "term": "9M",
+      "issue_no": "Y2690",
+      "yield": 3.03,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-18",
+      "term": "12M",
+      "issue_no": "Y2694",
+      "yield": 3.07,
+      "price": null,
+      "source": "HKMA"
+    },
+    {
+      "date": "2026-09-18",
+      "term": "2 YR",
+      "issue_no": "02Y2808",
+      "yield": 3.551,
+      "price": 99.03,
+      "source": "HKMA"
+    }
+  ],
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "success",
@@ -515,7 +572,7 @@
     "India: loaded 6 instruments from india.json",
     "Loaded 22 instruments from Phase 1 country files.",
     "USA: Treasury curve updated for 2026-09-18T00:00:00; 14 tenors.",
-    "Hong Kong: ERROR HTTP Error 502: Bad Gateway",
+    "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: page fetched; found 5/6 tracked issue codes.",
     "Singapore: MAS live benchmark data parsed for 2/6 tracked issues (2026-09-18).",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
