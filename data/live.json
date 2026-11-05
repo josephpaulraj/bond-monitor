@@ -1,6 +1,6 @@
 {
   "schemaVersion": "3.9",
-  "updatedAt": "2026-11-05T04:53:32Z",
+  "updatedAt": "2026-11-05T13:55:10Z",
   "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
@@ -31,31 +31,31 @@
   },
   "hongkongIndicative": [
     {
-      "date": "2026-11-04",
+      "date": "2026-11-05",
       "term": "1W",
       "issue_no": "Q2632",
-      "yield": 2.12,
+      "yield": 2.22,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-11-04",
+      "date": "2026-11-05",
       "term": "1M",
       "issue_no": "Q2635",
-      "yield": 2.25,
+      "yield": 2.34,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-11-04",
+      "date": "2026-11-05",
       "term": "3M",
       "issue_no": "Q2644",
-      "yield": 2.73,
+      "yield": 2.75,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-11-04",
+      "date": "2026-11-05",
       "term": "6M",
       "issue_no": "H2673",
       "yield": 2.92,
@@ -63,7 +63,7 @@
       "source": "HKMA"
     },
     {
-      "date": "2026-11-04",
+      "date": "2026-11-05",
       "term": "9M",
       "issue_no": "Y2692",
       "yield": 3.05,
@@ -71,39 +71,46 @@
       "source": "HKMA"
     },
     {
-      "date": "2026-11-04",
+      "date": "2026-11-05",
       "term": "12M",
       "issue_no": "Y2696",
-      "yield": 3.16,
+      "yield": 3.14,
       "price": null,
       "source": "HKMA"
     },
     {
-      "date": "2026-11-04",
+      "date": "2026-11-05",
       "term": "2 YR",
       "issue_no": "02Y2808",
-      "yield": 3.357,
-      "price": 99.42,
+      "yield": 3.328,
+      "price": 99.47,
       "source": "HKMA"
     }
   ],
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "success",
-    "date": "2026-11-04",
+    "date": "2026-11-05",
     "rows": [
       {
-        "issue_code": "NX21100N",
+        "issue_code": "N523100W",
+        "yield": 1.86,
+        "price": null,
+        "date": "2026-11-05",
+        "source": "MAS"
+      },
+      {
+        "issue_code": "NZ16100X",
         "yield": null,
-        "price": 101.79,
-        "date": "2026-11-04",
+        "price": 100.35,
+        "date": "2026-11-05",
         "source": "MAS"
       },
       {
         "issue_code": "NY25200N",
         "yield": null,
-        "price": 100.7,
-        "date": "2026-11-04",
+        "price": 101.12,
+        "date": "2026-11-05",
         "source": "MAS"
       }
     ],
@@ -113,7 +120,7 @@
       "NY25200N",
       "NZ16100X"
     ],
-    "matchedInstruments": 2
+    "matchedInstruments": 3
   },
   "instrumentCount": 22,
   "instruments": [
@@ -228,17 +235,19 @@
       "type": "Government",
       "currency": "SGD",
       "coupon": 2.875,
-      "yield": null,
+      "yield": 1.86,
       "price": null,
       "maturity": "2028-08-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
-      "liveYield": null,
+      "liveYield": 1.86,
       "livePrice": null,
-      "liveDate": null,
-      "dataStatus": "source-backed seed"
+      "liveDate": "2026-11-05",
+      "dataStatus": "live MAS SGS data",
+      "previousYield": null,
+      "issue_code": "N523100W"
     },
     {
       "market": "Singapore",
@@ -249,18 +258,16 @@
       "currency": "SGD",
       "coupon": 1.625,
       "yield": null,
-      "price": 101.79,
+      "price": null,
       "maturity": "2031-07-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 101.79,
-      "liveDate": "2026-11-04",
-      "dataStatus": "live MAS SGS data",
-      "previousPrice": null,
-      "issue_code": "NX21100N"
+      "livePrice": null,
+      "liveDate": null,
+      "dataStatus": "source-backed seed"
     },
     {
       "market": "Singapore",
@@ -271,16 +278,17 @@
       "currency": "SGD",
       "coupon": 2.25,
       "yield": null,
-      "price": null,
+      "price": 100.35,
       "maturity": "2036-08-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": null,
-      "liveDate": null,
-      "dataStatus": "source-backed seed"
+      "livePrice": 100.35,
+      "liveDate": "2026-11-05",
+      "dataStatus": "live MAS SGS data",
+      "previousPrice": null
     },
     {
       "market": "Singapore",
@@ -291,15 +299,15 @@
       "currency": "SGD",
       "coupon": 2.25,
       "yield": null,
-      "price": 100.7,
+      "price": 101.12,
       "maturity": "2040-07-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 100.7,
-      "liveDate": "2026-11-04",
+      "livePrice": 101.12,
+      "liveDate": "2026-11-05",
       "dataStatus": "live MAS SGS data",
       "previousPrice": null
     },
@@ -573,7 +581,7 @@
     "USA: Treasury curve updated for 2026-11-04T00:00:00; 14 tenors.",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: page fetched; found 4/6 tracked issue codes.",
-    "Singapore: MAS live benchmark data parsed for 2/6 tracked issues (2026-11-04).",
+    "Singapore: MAS live benchmark data parsed for 3/6 tracked issues (2026-11-05).",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
