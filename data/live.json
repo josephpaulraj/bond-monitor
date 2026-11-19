@@ -1,6 +1,6 @@
 {
   "schemaVersion": "3.9",
-  "updatedAt": "2026-11-19T05:42:45Z",
+  "updatedAt": "2026-11-19T15:09:05Z",
   "status": "success",
   "sources": {
     "usa": "https://home.treasury.gov/resource-center/data-chart-center/interest-rates",
@@ -90,27 +90,27 @@
   "singaporeBenchmark": {
     "source": "MAS",
     "status": "success",
-    "date": "2026-11-18",
+    "date": "2026-11-19",
     "rows": [
       {
         "issue_code": "NZ16100X",
         "yield": null,
-        "price": 99.69,
-        "date": "2026-11-18",
+        "price": 99.8,
+        "date": "2026-11-19",
         "source": "MAS"
       },
       {
         "issue_code": "NY25200N",
         "yield": null,
-        "price": 99.75,
-        "date": "2026-11-18",
+        "price": 99.85,
+        "date": "2026-11-19",
         "source": "MAS"
       },
       {
         "issue_code": "NA16100H",
         "yield": null,
-        "price": 100.7,
-        "date": "2026-11-18",
+        "price": 100.6,
+        "date": "2026-11-19",
         "source": "MAS"
       }
     ],
@@ -276,15 +276,15 @@
       "currency": "SGD",
       "coupon": 2.25,
       "yield": null,
-      "price": 99.69,
+      "price": 99.8,
       "maturity": "2036-08-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 99.69,
-      "liveDate": "2026-11-18",
+      "livePrice": 99.8,
+      "liveDate": "2026-11-19",
       "dataStatus": "live MAS SGS data",
       "previousPrice": null
     },
@@ -297,15 +297,15 @@
       "currency": "SGD",
       "coupon": 2.25,
       "yield": null,
-      "price": 99.75,
+      "price": 99.85,
       "maturity": "2040-07-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 99.75,
-      "liveDate": "2026-11-18",
+      "livePrice": 99.85,
+      "liveDate": "2026-11-19",
       "dataStatus": "live MAS SGS data",
       "previousPrice": null
     },
@@ -318,15 +318,15 @@
       "currency": "SGD",
       "coupon": 2.75,
       "yield": null,
-      "price": 100.7,
+      "price": 100.6,
       "maturity": "2046-03-01",
       "rating": "AAA",
       "source": "MAS",
       "source_url": "https://eservices.mas.gov.sg/Statistics/fdanet/SgsBenchmarkIssuePrices.aspx/BondPricesAndYields.aspx",
       "verified_as_of": "2026-08-11",
       "liveYield": null,
-      "livePrice": 100.7,
-      "liveDate": "2026-11-18",
+      "livePrice": 100.6,
+      "liveDate": "2026-11-19",
       "dataStatus": "live MAS SGS data",
       "previousPrice": null
     },
@@ -580,7 +580,7 @@
     "USA: Treasury curve updated for 2026-11-18T00:00:00; 14 tenors.",
     "Hong Kong: HKMA returned 7 indicative-price rows.",
     "Singapore MAS: page fetched; found 4/6 tracked issue codes.",
-    "Singapore: MAS live benchmark data parsed for 3/6 tracked issues (2026-11-18).",
+    "Singapore: MAS live benchmark data parsed for 3/6 tracked issues (2026-11-19).",
     "India: Phase 1 RBI instrument universe preserved; no unverified live quote was inferred."
   ]
 }
